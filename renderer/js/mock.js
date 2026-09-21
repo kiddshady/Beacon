@@ -76,6 +76,8 @@ const HOSTS = [
 const listeners = new Set()
 const aliases = {}
 let scanning = false
+const pingListeners = new Set()
+let pingTimer = null
 
 const watchListeners = new Set()
 let watchState = { enabled: false, intervalMin: 15, intervals: [5, 15, 30, 60], scopeId: null, cidr: null, running: false, lastRun: null, nextRun: null, lastCount: null }
@@ -205,6 +207,25 @@ window.beacon = {
       return watchState
     },
     onState (fn) { watchListeners.add(fn); return () => watchListeners.delete(fn) }
+  },
+
+  openExternal (url) { window.open(url, '_blank', 'noopener') },
+
+  async wake (mac) { await sleep(200); return { mac, targets: ['192.168.1.255', '255.255.255.255'] } },
+
+  // Ping simulado: alrededor de la latencia del host, con algún corte de vez en cuando.
+  ping: {
+    start (ip) {
+      this.stop()
+      const base = (HOSTS.find(h => h.ip === ip)?.latency ?? 20) + 1
+      pingTimer = setInterval(() => {
+        const ms = Math.random() < 0.08 ? null : Math.max(0, Math.round(base + (Math.random() - 0.4) * base))
+        pingListeners.forEach(fn => fn({ ip, ms, at: Date.now() }))
+      }, 1000)
+      return true
+    },
+    stop () { clearInterval(pingTimer); pingTimer = null; return true },
+    onSample (fn) { pingListeners.add(fn); return () => pingListeners.delete(fn) }
   },
 
   async setAlias (key, alias) {

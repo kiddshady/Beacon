@@ -6,6 +6,8 @@ import { listScopes } from './net/interfaces.js'
 import { Scanner } from './net/scanner.js'
 import { nmapInfo, buildCommand } from './net/nmap.js'
 import { PRESETS } from './net/presets.js'
+import { wake } from './net/wol.js'
+import { createPinger } from './net/ping.js'
 import * as updater from './updater.js'
 import * as memory from './memory.js'
 import { createWatcher } from './watch.js'
@@ -71,7 +73,10 @@ function createWindow () {
     e.preventDefault()
     win.hide()
   })
-  win.on('closed', () => { win = null })
+  // Escondida no hay quien mire el ping; el renderer lo vuelve a pedir al volver.
+  win.on('hide', () => pinger.stop())
+  win.on('minimize', () => pinger.stop())
+  win.on('closed', () => { win = null; pinger.stop() })
 
   if (process.env.BEACON_CAPTURE) captureAndExit(win)
 }
@@ -141,6 +146,8 @@ function notify ({ title, body }) {
 }
 
 const send = (channel, payload) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload) }
+
+const pinger = createPinger((sample) => send('ping:sample', sample))
 
 const watcher = createWatcher({
   startScan,
@@ -240,6 +247,19 @@ ipcMain.handle('scan:preview', (_e, { presetId, target }) =>
 ipcMain.handle('scan:start', async (_e, { presetId, target }) => (await startScan({ presetId, target })).hosts)
 
 ipcMain.handle('device:alias', (_e, { key, alias, host }) => memory.setAlias(key, alias, host))
+
+/** Solo http(s) y solo a donde el renderer ya vio un puerto web: nada de file:// ni rarezas. */
+ipcMain.handle('shell:open', (_e, url) => {
+  let u
+  try { u = new URL(String(url)) } catch { throw new Error(`URL inválida: ${url}`) }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error(`Solo se abren direcciones http(s), no ${u.protocol}`)
+  return shell.openExternal(u.toString())
+})
+
+ipcMain.handle('device:wake', (_e, { mac, scope }) => wake(mac, { network: scope?.network, prefix: scope?.prefix }))
+
+ipcMain.handle('ping:start', (_e, { ip, port }) => { pinger.start(ip, port); return true })
+ipcMain.handle('ping:stop', () => { pinger.stop(); return true })
 
 ipcMain.handle('watch:state', () => watcher.state())
 ipcMain.handle('watch:configure', (_e, patch) => watcher.configure(patch))

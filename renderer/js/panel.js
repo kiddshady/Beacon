@@ -149,6 +149,30 @@ export function hotCard (container, ip) {
   card.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 }
 
+/**
+ * Puertos que suelen tener una web atrás, del más probable al menos. El panel
+ * de un router, una impresora o un NAS casi siempre está en uno de estos.
+ */
+const WEB_PORTS = [
+  [443, 'https'], [80, 'http'], [8080, 'http'], [8443, 'https'], [5000, 'http'], [5001, 'https'],
+  [8000, 'http'], [8081, 'http'], [81, 'http'], [9000, 'http'], [3000, 'http'], [8123, 'http'], [631, 'http']
+]
+const WEB_SCHEME = new Map(WEB_PORTS)
+
+export function webUrl (host, port) {
+  const scheme = WEB_SCHEME.get(port)
+  if (!scheme) return null
+  const std = (scheme === 'http' && port === 80) || (scheme === 'https' && port === 443)
+  return `${scheme}://${host.ip}${std ? '' : `:${port}`}/`
+}
+
+/** El mejor candidato a "panel" de este aparato, o null. */
+export function panelUrl (host) {
+  const open = new Set((host.ports || []).map(p => p.port))
+  const hit = WEB_PORTS.find(([port]) => open.has(port))
+  return hit ? webUrl(host, hit[0]) : null
+}
+
 /** Lo que la memoria sabe de este aparato, dicho en una línea. */
 function historyLine (host) {
   const m = host.memory
@@ -164,7 +188,7 @@ function historyLine (host) {
   return line ? line[0].toUpperCase() + line.slice(1) + '.' : null
 }
 
-export function renderDetail (container, host, { onBack, onAlias } = {}) {
+export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen, onCopy } = {}) {
   const kind = host.kind || 'unknown'
   const ports = [...(host.ports || [])].sort((a, b) => {
     const rank = { warn: 0, watch: 1, ok: 2 }
@@ -172,6 +196,7 @@ export function renderDetail (container, host, { onBack, onAlias } = {}) {
   })
   const history = historyLine(host)
   const detected = host.display || host.ip
+  const panel = panelUrl(host)
 
   const wrap = document.createElement('div')
   wrap.className = 'detail'
@@ -189,12 +214,23 @@ export function renderDetail (container, host, { onBack, onAlias } = {}) {
       </span>
     </div>
 
+    <div class="detail-actions">
+      ${panel ? `<button class="btn btn-small" data-open data-tip="${esc(panel)}">${icon('external')}Abrir panel</button>` : ''}
+      ${host.mac && !host.isSelf ? `<button class="btn btn-small" data-wake data-tip="Manda el paquete mágico de Wake-on-LAN al broadcast de la red">${icon('power')}Despertar</button>` : ''}
+      <button class="btn btn-small" data-copy data-tip="Copiar la IP">${icon('copy')}${esc(host.ip)}</button>
+    </div>
+
     <div class="detail-facts">
       <div class="fact"><span class="label">Dirección IP</span><b class="selectable">${esc(host.ip)}</b></div>
       <div class="fact"><span class="label">MAC</span><b class="selectable">${esc(host.mac || '—')}</b></div>
       <div class="fact"><span class="label">Fabricante</span><b class="selectable">${esc(host.vendor || '—')}</b>
         ${host.vendorNote ? `<span class="fact-note">${esc(host.vendorNote)}</span>` : ''}</div>
-      <div class="fact"><span class="label">Latencia</span><b>${host.latency != null ? `${host.latency} ms` : '—'}</b></div>
+      <div class="fact fact-ping">
+        <span class="label">Latencia en vivo</span>
+        <b data-ping-now>${host.latency != null ? `${host.latency} ms` : '—'}</b>
+        <svg class="spark" data-spark viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <span class="fact-note" data-ping-note>midiendo…</span>
+      </div>
       ${host.os ? `<div class="fact" style="grid-column:1/-1">
         <span class="label">Sistema operativo (estimado)</span>
         <b class="selectable">${esc(host.os.name)} · ${host.os.accuracy}% de confianza</b></div>` : ''}
@@ -218,19 +254,37 @@ export function renderDetail (container, host, { onBack, onAlias } = {}) {
       const row = document.createElement('div')
       row.className = `port-row ${p.risk === 'warn' ? 'warn' : ''}`
       row.style.animationDelay = `${Math.min(i * 28, 320)}ms`
+      const url = webUrl(host, p.port)
       row.innerHTML = `
         <span class="port-num selectable">${p.port}</span>
         <span>
           <span class="port-name">${esc(p.name)}</span>
           <div class="port-what selectable">${esc(p.what)}</div>
           ${p.product ? `<div class="port-product selectable">${esc(p.product)}</div>` : ''}
-        </span>`
+        </span>
+        ${url ? `<button class="btn-icon port-open" data-tip="Abrir ${esc(url)}">${icon('external')}</button>` : ''}`
+      row.querySelector('.port-open')?.addEventListener('click', () => onOpen?.(url))
       return row
     }))
   }
 
   wrap.querySelector('.back-btn').addEventListener('click', () => onBack?.())
   wrap.querySelector('.edit')?.addEventListener('click', () => editAlias(wrap, host, onAlias))
+  wrap.querySelector('[data-open]')?.addEventListener('click', () => onOpen?.(panel))
+  wrap.querySelector('[data-copy]')?.addEventListener('click', (e) => {
+    onCopy?.(host.ip)
+    flash(e.currentTarget, `${icon('check')}Copiada`)
+  })
+  wrap.querySelector('[data-wake]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget
+    btn.disabled = true
+    try {
+      await onWake?.(host)
+      flash(btn, `${icon('check')}Enviado`)
+    } catch {
+      flash(btn, `${icon('alert')}No salió`)
+    }
+  })
   container.replaceChildren(wrap)
   return wrap
 }
@@ -351,4 +405,73 @@ export function renderDiffNotice (container, diff) {
   div.dataset.kind = 'diff'
   div.innerHTML = `${icon('radar')}<span class="selectable">${esc(message)}</span>`
   container.prepend(div)
+}
+
+/** Un botón que confirma lo que hizo y vuelve a ser lo que era. */
+function flash (btn, html, ms = 1500) {
+  const prev = btn.innerHTML
+  btn.innerHTML = html
+  btn.classList.add('flash')
+  setTimeout(() => {
+    btn.innerHTML = prev
+    btn.classList.remove('flash')
+    btn.disabled = false
+  }, ms)
+}
+
+/**
+ * La latencia en vivo del detalle: el último valor, un sparkline con las
+ * últimas muestras, y un resumen. Las que no contestaron van como marcas
+ * abajo, en ámbar, para que un corte se vea como corte y no como cero.
+ */
+export function updatePing (container, samples) {
+  const now = container.querySelector('[data-ping-now]')
+  const spark = container.querySelector('[data-spark]')
+  const note = container.querySelector('[data-ping-note]')
+  if (!now || !spark) return
+
+  const last = samples[samples.length - 1]
+  const ok = samples.filter(s => s.ms != null).map(s => s.ms)
+  const lost = samples.length - ok.length
+
+  if (!last) {
+    now.textContent = '—'
+    note.textContent = 'midiendo…'
+    return
+  }
+  now.textContent = last.ms == null ? 'sin respuesta' : `${last.ms} ms`
+  now.classList.toggle('warn', last.ms == null)
+
+  const bits = []
+  if (ok.length) {
+    const min = Math.min(...ok)
+    const max = Math.max(...ok)
+    const avg = Math.round(ok.reduce((a, b) => a + b, 0) / ok.length)
+    bits.push(`mín ${min} · med ${avg} · máx ${max} ms`)
+  }
+  if (lost) bits.push(`${lost} sin respuesta`)
+  note.textContent = bits.join(' · ') || 'midiendo…'
+
+  // Escala: el máximo visto, nunca menos de 20 ms para que la LAN no sea ruido plano.
+  const W = 120
+  const H = 26
+  const N = 40
+  const view = samples.slice(-N)
+  const scale = Math.max(20, ...ok)
+  const x = (i) => (i / (N - 1)) * W
+  const y = (ms) => H - 3 - (Math.min(ms, scale) / scale) * (H - 6)
+
+  let d = ''
+  let pen = false
+  const misses = []
+  view.forEach((s, i) => {
+    const xi = x(N - view.length + i)
+    if (s.ms == null) { pen = false; misses.push(xi); return }
+    d += `${pen ? 'L' : 'M'}${xi.toFixed(1)} ${y(s.ms).toFixed(1)} `
+    pen = true
+  })
+
+  spark.innerHTML =
+    `<path d="${d.trim()}" />` +
+    misses.map(xi => `<line class="miss" x1="${xi.toFixed(1)}" y1="${H - 1}" x2="${xi.toFixed(1)}" y2="${H - 6}" />`).join('')
 }

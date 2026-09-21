@@ -1,7 +1,7 @@
 import { paintIcons, icon } from './icons.js'
 import { installTooltips, watchScrollFade, formatMs, tweenNumber } from './ui.js'
 import { Radar } from './radar.js'
-import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter } from './panel.js'
+import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter, updatePing } from './panel.js'
 import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
 import { installWatch } from './watch.js'
@@ -25,6 +25,8 @@ const state = {
   /** Cómo se ve la lista: 'list' o 'grid'. Se recuerda entre sesiones. */
   layout: 'list',
   filter: '',
+  /** Ping en vivo del host abierto en el detalle. */
+  ping: { ip: null, samples: [] },
   running: false,
   startedAt: 0
 }
@@ -208,6 +210,7 @@ function beginScan () {
   state.diff = null
   state.selected = null
   if (state.view === 'detail') state.view = 'list'
+  stopPing()
   radar.clear()
   radar.startSweep()
   for (const n of $('#notices').querySelectorAll('[data-kind="diff"]')) dismissNotice(n)
@@ -316,19 +319,24 @@ function updateStats () {
 
 function renderSide () {
   const body = $('#side-body')
+  // La grilla es de la lista; el detalle ocupa el panel entero. renderList la vuelve a poner.
+  body.classList.remove('grid')
 
   if (state.view === 'detail' && state.selected) {
     const host = state.hosts.get(state.selected)
     if (host) {
       renderDetail(body, host, {
-        onBack: () => { state.view = 'list'; state.selected = null; radar.select(null); renderSide() },
-        onAlias: host.key ? renameHost : null
+        onBack: leaveDetail,
+        onAlias: host.key ? renameHost : null,
+        onWake: (h) => window.beacon.wake(h.mac, state.scope),
+        onOpen: (url) => window.beacon.openExternal(url),
+        onCopy: (text) => window.beacon.copy(text)
       })
+      if (state.ping.ip === host.ip) updatePing(body, state.ping.samples)
       return
     }
   }
 
-  body.classList.remove('grid')
   const all = [...state.hosts.values()]
   const hosts = all.filter(h => matchesFilter(h, state.filter))
   const missing = state.missing.filter(m => matchesFilter(m, state.filter))
@@ -402,6 +410,37 @@ function selectHost (ip) {
   radar.select(ip)
   renderSide()
   paintIcons($('#side-body'))
+  startPing(state.hosts.get(ip))
+}
+
+/** Vuelve a la lista desde el detalle, por el botón, Esc, la vista o el filtro. */
+function leaveDetail () {
+  state.view = 'list'
+  state.selected = null
+  radar.select(null)
+  stopPing()
+  renderSide()
+}
+
+/* ── Ping en vivo ──────────────────────────────────────────────────────── */
+
+function startPing (host) {
+  if (!host || !window.beacon.ping) return
+  state.ping = { ip: host.ip, samples: [] }
+  window.beacon.ping.start(host.ip, host.ports?.[0]?.port)
+}
+
+function stopPing () {
+  if (!state.ping.ip) return
+  state.ping = { ip: null, samples: [] }
+  window.beacon.ping?.stop()
+}
+
+function onPingSample (s) {
+  if (s.ip !== state.ping.ip) return
+  state.ping.samples.push(s)
+  if (state.ping.samples.length > 40) state.ping.samples.shift()
+  if (state.view === 'detail' && state.selected === s.ip) updatePing($('#side-body'), state.ping.samples)
 }
 
 /* ── Controles ─────────────────────────────────────────────────────────── */
@@ -410,11 +449,7 @@ function wireControls () {
   $('#run').addEventListener('click', run)
 
   $('#view-toggle').addEventListener('click', () => {
-    if (state.view === 'detail') {
-      state.view = 'list'
-      state.selected = null
-      radar.select(null)
-    }
+    if (state.view === 'detail') leaveDetail()
     toggleLayout()
   })
 
@@ -433,6 +468,11 @@ function wireControls () {
   $('#win-close').addEventListener('click', () => window.beacon.win.close())
 
   window.beacon.onScanEvent(handleEvent)
+  window.beacon.ping?.onSample(onPingSample)
+  // El principal corta el ping cuando la ventana se esconde; al volver se pide de nuevo.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && state.view === 'detail' && state.selected) startPing(state.hosts.get(state.selected))
+  })
 
   document.addEventListener('keydown', onKey)
 }
@@ -451,13 +491,7 @@ function onKey (e) {
 
   if (e.key === 'Escape') {
     if (typing) { e.target.blur(); return }
-    if (state.view === 'detail') {
-      state.view = 'list'
-      state.selected = null
-      radar.select(null)
-      renderSide()
-      return
-    }
+    if (state.view === 'detail') { leaveDetail(); return }
     if (state.running) { window.beacon.stopScan(); return }
     if (state.filter) clearFilter()
     return
@@ -467,7 +501,7 @@ function onKey (e) {
 
   if (e.key === '/') {
     e.preventDefault()
-    if (state.view === 'detail') { state.view = 'list'; state.selected = null; radar.select(null); renderSide() }
+    if (state.view === 'detail') leaveDetail()
     $('#filter-wrap').classList.add('on')
     $('#filter-input').focus()
     $('#filter-input').select()

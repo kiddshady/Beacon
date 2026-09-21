@@ -602,9 +602,41 @@
 .alias-input:focus { box-shadow: 0 0 0 1px var(--phosphor-dim) inset, var(--shadow-glow); }
 .alias-input.closing { opacity: 0; }
 
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 12px;
+}
+.detail-actions .btn svg { width: 13px; height: 13px; }
+.detail-actions .btn.flash { color: var(--text); background: var(--surface-3); }
+
+/* Latencia en vivo: valor, sparkline, resumen. */
+.fact-ping b { display: block; transition: color var(--t-base) var(--ease); }
+.fact-ping b.warn { color: var(--warn); }
+.spark {
+  display: block;
+  width: 100%;
+  height: 26px;
+  margin-top: 4px;
+  overflow: visible;
+}
+.spark path {
+  fill: none;
+  stroke: var(--phosphor);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 3px var(--phosphor-glow));
+}
+.spark .miss { stroke: var(--warn); stroke-width: 2; vector-effect: non-scaling-stroke; }
+
 .detail-facts {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* minmax(0, 1fr) y no 1fr: el SVG del ping tiene ancho intrínseco y, con
+     1fr a secas, agranda su columna y aplasta la otra. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
   margin-bottom: 14px;
   border-radius: var(--r);
@@ -630,7 +662,8 @@
 
 .port-row {
   display: grid;
-  grid-template-columns: 54px 1fr;
+  grid-template-columns: 54px 1fr auto;
+  align-items: start;
   gap: 11px;
   padding: 10px 11px;
   margin-bottom: 5px;
@@ -646,6 +679,9 @@
   color: var(--phosphor);
 }
 .port-row.warn .port-num { color: var(--warn); }
+.port-open { width: 26px; height: 26px; opacity: .55; }
+.port-open svg { width: 13px; height: 13px; }
+.port-row:hover .port-open, .port-open:focus-visible { opacity: 1; }
 .port-row.warn { box-shadow: var(--shadow-1), 0 0 0 1px var(--warn-wash) inset; }
 
 .port-name { font-size: 12.5px; font-weight: 500; color: var(--text); }

@@ -44,6 +44,10 @@ export const ICONS = {
 
   check: S(`<path d="M4.5 12.5l5 5 10-11" stroke-width="2"/>`),
   back:  S(`<path d="M15 5l-7 7 7 7"/>`),
+  power: S(`
+    <path d="M12 3v8"/>
+    <path d="M6.6 6.6a7.5 7.5 0 1 0 10.8 0"/>`),
+
   watch: S(`
     <path d="M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z"/>
     <circle cx="12" cy="12" r="3"/>`),

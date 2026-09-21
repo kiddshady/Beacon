@@ -16,6 +16,23 @@ contextBridge.exposeInMainWorld('beacon', {
 
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
 
+  /** Abre una dirección http(s) en el navegador del sistema. */
+  openExternal: (url) => ipcRenderer.invoke('shell:open', url),
+
+  /** Wake-on-LAN: manda el paquete mágico al broadcast de la red del scope. */
+  wake: (mac, scope) => ipcRenderer.invoke('device:wake', { mac, scope }),
+
+  /** Ping en vivo, un host a la vez. Las muestras llegan por onSample. */
+  ping: {
+    start: (ip, port) => ipcRenderer.invoke('ping:start', { ip, port }),
+    stop: () => ipcRenderer.invoke('ping:stop'),
+    onSample: (fn) => {
+      const handler = (_e, sample) => fn(sample)
+      ipcRenderer.on('ping:sample', handler)
+      return () => ipcRenderer.off('ping:sample', handler)
+    }
+  },
+
   /** Cómo llamás vos a un aparato. Vacío borra el alias y vuelve el nombre detectado. */
   setAlias: (key, alias, host) => ipcRenderer.invoke('device:alias', { key, alias, host }),
 

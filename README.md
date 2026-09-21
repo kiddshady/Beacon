@@ -44,6 +44,8 @@ main/
     fingerprint.js   adivina el tipo de aparato
     presets.js       los botones
     nmap.js          wrapper con parseo XML en streaming
+    wol.js           el paquete mágico de Wake-on-LAN
+    ping.js          ping en vivo (ping.exe, con knock TCP de respaldo)
     scanner.js       orquesta todo y emite hallazgos a medida que aparecen
 renderer/
   css/beacon.css     sistema visual (fósforo verde, CRT)
@@ -81,6 +83,13 @@ renderer/
   cambia entre lista y grilla de dos columnas; se recuerda. El filtro aparece cuando
   hay algo que filtrar y busca en nombre, alias, IP, MAC, fabricante y puertos
   (número o nombre); cada palabra tiene que aparecer, en cualquier orden.
+- **El detalle hace cosas.** **Abrir panel** lleva al web del aparato si tiene un
+  puerto típico abierto (443, 80, 8080, 5000 del Synology, 8123 de Home Assistant…);
+  cada puerto web de la lista tiene también su flechita. **Despertar** manda el
+  paquete mágico de Wake-on-LAN al broadcast de la subred y al general. Y la
+  **latencia en vivo**: un ping por segundo (con `ping.exe`, que no necesita admin y
+  llega a los teléfonos donde el TCP se muere) con sparkline y mín/med/máx; los que no
+  contestan se marcan en ámbar. Se corta al volver a la lista o esconder la ventana.
 - **Vigilancia continua.** El botón **Vigilar** de la barra: cada 5, 15, 30 o 60
   minutos Beacon repite el barrido liviano (ARP + knock, dos segundos, sin puertos)
   sobre la red elegida y, si aparece alguien que la memoria no conocía, avisa con una
@@ -152,5 +161,5 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Wake-on-LAN, abrir el panel web del aparato, ping en vivo en el detalle.
 - Exportar (JSON/CSV/PNG) y rango a mano.
+- Descubrimiento SSDP/UPnP para nombres reales de IoT.
