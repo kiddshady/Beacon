@@ -84,7 +84,7 @@ npm run smoke   # prueba el motor sin interfaz (acepta un preset: quick, deep…
 npm run oui     # actualiza la base de fabricantes desde el IEEE
 npm run icon    # regenera build/icon.png desde la marca de la app
 npm run dist    # instalador NSIS en release/, sin publicar
-npm run release # instalador + publica el release en GitHub (necesita GH_TOKEN)
+npm run release # instalador + release en GitHub, verificado (ver Actualizaciones)
 ```
 
 Para capturar la app corriendo un escaneo real:
@@ -116,14 +116,20 @@ un botón para reiniciar. Si no lo tocás, se instala sola al cerrar. En desarro
 busca nada. Para buscar a mano o ver en qué anda: el botón de información en la barra
 de título (Acerca de).
 
-Para sacar una versión: subí `version` en `package.json`, commiteá, y
+Para sacar una versión:
 
 ```bash
-GH_TOKEN=$(gh auth token) npm run release
+npm version minor            # o patch: sube package.json y crea el tag
+git push origin main --follow-tags
+npm run release              # o: npm run release -- --notas notas.md
 ```
 
-Eso construye el instalador, crea el release en GitHub con el `.exe`, el `.blockmap`
-y el `latest.yml` que el updater lee. El tag lo pone electron-builder (`v0.2.0`).
+`scripts/release.mjs` crea el borrador en GitHub **antes** de compilar (electron-builder
+26 tiene una carrera que, si no, crea dos releases con el mismo tag), construye el
+instalador, sube el `.exe`, el `.blockmap` y el `latest.yml` que el updater lee,
+verifica que los tres estén con su tamaño exacto, y recién ahí lo publica. Si algo
+falla, queda en borrador y nadie lo ve. `--ensayo` recorre todo con una versión de
+prueba y borra el borrador al final.
 
 ## Pendiente
 

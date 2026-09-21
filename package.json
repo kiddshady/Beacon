@@ -20,7 +20,7 @@
     "smoke": "node scripts/smoke.mjs",
     "icon": "electron scripts/make-icon.cjs",
     "dist": "npm run build && electron-builder --win --publish never",
-    "release": "npm run build && electron-builder --win --publish always"
+    "release": "node scripts/release.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
