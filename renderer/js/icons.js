@@ -44,6 +44,22 @@ export const ICONS = {
 
   check: S(`<path d="M4.5 12.5l5 5 10-11" stroke-width="2"/>`),
   back:  S(`<path d="M15 5l-7 7 7 7"/>`),
+  info: S(`
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 11v5"/>
+    <circle cx="12" cy="8" r=".9" fill="currentColor" stroke="none"/>`),
+
+  refresh: S(`
+    <path d="M20 12a8 8 0 0 1-13.9 5.4"/>
+    <path d="M4 12a8 8 0 0 1 13.9-5.4"/>
+    <path d="M17.5 3v4h-4"/>
+    <path d="M6.5 21v-4h4"/>`),
+
+  external: S(`
+    <path d="M14 5h5v5"/>
+    <path d="M19 5l-8 8"/>
+    <path d="M18 13.5V18a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h4.5"/>`),
+
   update: S(`
     <path d="M12 4v10"/>
     <path d="M8 10.5l4 4 4-4"/>

@@ -74,12 +74,15 @@ const HOSTS = [
 ]
 
 const listeners = new Set()
+const updateListeners = new Set()
+let updateState = { phase: 'idle', version: '0.0.0-ui', reason: 'dev' }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 window.beacon = {
   async bootstrap () {
     return {
       version: '0.0.0-ui',
+      versions: { electron: '—', chrome: navigator.userAgent.match(/Chrome\/(\S+)/)?.[1] || '—', node: '—' },
       scopes: SCOPES,
       presets: PRESETS,
       nmap: { available: true, bin: 'nmap', version: '7.80', elevated: false, outdated: true }
@@ -144,12 +147,18 @@ window.beacon = {
     return true
   },
 
-  // Sin updater en el navegador: estado quieto, y `install` no hace nada.
+  // Sin updater en el navegador: estado quieto, y `install` no hace nada. Para
+  // trabajar la UI de cada fase, desde la consola: beacon.update._emit({ phase: 'ready', next: '0.2.0' })
   update: {
-    async state () { return { phase: 'idle', version: '0.0.0-ui', reason: 'dev' } },
-    async check () { return { phase: 'idle', version: '0.0.0-ui', reason: 'dev', manual: true } },
+    async state () { return updateState },
+    async check () { return updateState },
     install () {},
-    onState () { return () => {} }
+    onState (fn) { updateListeners.add(fn); return () => updateListeners.delete(fn) },
+    _emit (patch) {
+      updateState = { ...updateState, ...patch }
+      updateListeners.forEach(fn => fn(updateState))
+      return updateState
+    }
   },
 
   win: { minimize () {}, maximize () {}, close () {} }

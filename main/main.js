@@ -118,6 +118,7 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('app:bootstrap', async () => ({
   version: app.getVersion(),
+  versions: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node },
   scopes: await listScopes(),
   nmap: await nmapInfo(),
   presets: PRESETS.map(({ id, label, blurb, needsNmap, needsAdmin }) => ({

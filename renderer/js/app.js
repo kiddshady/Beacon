@@ -3,6 +3,7 @@ import { installTooltips, watchScrollFade, formatMs, tweenNumber } from './ui.js
 import { Radar } from './radar.js'
 import { renderList, renderDetail, renderNotice, renderUpdateNotice } from './panel.js'
 import { renderCommand } from './command.js'
+import { installAbout } from './about.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -11,6 +12,7 @@ const state = {
   presets: [],
   nmap: null,
   version: '',
+  versions: {},
   scope: null,
   preset: 'who',
   hosts: new Map(),
@@ -21,6 +23,7 @@ const state = {
 }
 
 let radar
+let about
 
 /* ── Arranque ──────────────────────────────────────────────────────────── */
 
@@ -45,6 +48,7 @@ async function boot () {
   state.presets = data.presets
   state.nmap = data.nmap
   state.version = data.version || ''
+  state.versions = data.versions || {}
   state.scope = data.scopes.find(s => s.kind === 'lan') || data.scopes[0] || null
 
   renderScopes()
@@ -71,7 +75,14 @@ async function boot () {
  * (la próxima apertura vuelve a intentar).
  */
 function watchUpdates () {
+  about = installAbout({
+    button: $('#about'),
+    bridge: window.beacon.update,
+    getInfo: () => ({ version: state.version, versions: state.versions, nmap: state.nmap })
+  })
+
   const onState = (u) => {
+    about.setUpdate(u)
     if (u.phase !== 'ready') return
     renderUpdateNotice($('#notices'), { next: u.next, onInstall: () => window.beacon.update.install() })
   }

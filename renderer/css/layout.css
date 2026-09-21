@@ -48,6 +48,24 @@
 }
 .danger-hover:hover { background: var(--danger-wash) !important; color: var(--danger) !important; }
 
+/* El botón de "acerca de" va un pelo separado de los controles de ventana, y
+   lleva un punto cuando hay una versión nueva lista: es el único lugar donde el
+   updater se hace notar sin que nadie haya preguntado. */
+.about-btn { position: relative; margin-right: 6px; }
+.about-btn::after {
+  content: '';
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 6px var(--phosphor-glow);
+  opacity: 0;
+  transform: scale(.4);
+  transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+}
+.about-btn.dot::after { opacity: 1; transform: scale(1); }
+
 /* ── Toolbar ───────────────────────────────────────────────────────────── */
 
 .toolbar {
@@ -575,3 +593,110 @@
 .notice.update span { flex: 1; }
 .notice.update b { color: var(--text); font-weight: 600; }
 .notice.update .btn { flex-shrink: 0; }
+
+/* ── Acerca de ─────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 6, 4, .55);
+  opacity: 0;
+  transition: opacity var(--t-slow) var(--ease);
+}
+.overlay.on { opacity: 1; }
+.overlay.closing { opacity: 0; }
+
+.about {
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px 20px 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3);
+  outline: none;
+  animation: pop-in var(--t-slow) var(--ease-out) both;
+}
+.overlay.closing .about { animation: pop-out var(--t-base) var(--ease) both; }
+
+.about-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.about-head .brand svg { width: 20px; height: 20px; }
+.about-title { display: flex; align-items: baseline; gap: 8px; flex: 1; }
+.about-title b { font-size: 14px; letter-spacing: .18em; color: var(--text); }
+.about-title span { font-size: 11.5px; color: var(--text-muted); }
+
+.about-blurb {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.about-section { margin-top: 18px; }
+.about-section .label { margin: 0 0 8px; }
+
+.about-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--r);
+  background: var(--surface-3);
+  box-shadow: var(--shadow-1);
+  font-size: 12.5px;
+  color: var(--text);
+  animation: rise var(--t-base) var(--ease-out) both;
+}
+.about-status-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.about-status small { font-size: 11px; color: var(--text-muted); overflow-wrap: anywhere; }
+.about-status.error { color: var(--warn); }
+.about-status.error small { color: var(--text-soft); }
+.about-status .progress { margin: 6px 0 2px; }
+.about-status .btn { flex-shrink: 0; }
+.about-status .btn svg { width: 13px; height: 13px; }
+
+/* Mientras busca o descarga, el mismo punto que late en la fase del escaneo. */
+.about-status.live .about-status-text > span::after {
+  content: '';
+  display: inline-block;
+  width: 5px; height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--phosphor);
+  animation: blink 1.1s var(--ease) infinite;
+  vertical-align: middle;
+}
+
+.about-env {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 16px;
+  margin: 0;
+  font-size: 12px;
+}
+.about-env dt { color: var(--text-muted); }
+.about-env dd { margin: 0; color: var(--text-soft); }
+
+.about-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 12px;
+  box-shadow: 0 -1px 0 var(--line);
+  font-size: 12px;
+}
+.about-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-soft);
+  text-decoration: none;
+  transition: color var(--t-base) var(--ease);
+}
+.about-links a:hover { color: var(--phosphor); }
+.about-links a svg { width: 12px; height: 12px; }

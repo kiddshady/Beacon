@@ -46,6 +46,7 @@ renderer/
   css/layout.css     estructura
   js/radar.js        el radar
   js/panel.js        lista y detalle
+  js/about.js        acerca de: versión, actualizaciones, entorno
   js/mock.js         puente falso para trabajar la UI sin Electron
 ```
 
@@ -99,7 +100,8 @@ mayorista que se lo vendió, así que buscar al revés devolvería siempre al ma
 La app empaquetada consulta los releases de `kiddshady/Beacon` unos segundos después
 de abrir, baja la versión nueva en silencio y avisa recién cuando ya está lista, con
 un botón para reiniciar. Si no lo tocás, se instala sola al cerrar. En desarrollo no
-busca nada.
+busca nada. Para buscar a mano o ver en qué anda: el botón de información en la barra
+de título (Acerca de).
 
 Para sacar una versión: subí `version` en `package.json`, commiteá, y
 
