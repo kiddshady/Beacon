@@ -5,6 +5,9 @@
 .app {
   display: grid;
   grid-template-rows: 38px 52px 1fr auto;
+  /* Sin el tope la columna crece al ancho mínimo del toolbar y, con muchas
+     interfaces, la ventana entera se ensancha por fuera del vidrio. */
+  grid-template-columns: minmax(0, 1fr);
   height: 100vh;
 }
 
@@ -71,21 +74,33 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 0 14px;
   background: var(--surface-1);
   box-shadow: 0 1px 0 var(--line), var(--shadow-1);
   z-index: 5;
 }
-.toolbar-spacer { flex: 1; }
 
-/* Selector de red */
-.scope-picker { display: flex; gap: 4px; }
+/* Selector de red. Cada interfaz es un chip; con muchas no entran todas y la
+   fila scrollea de costado. Los chips nunca ceden ancho ni se parten en dos
+   líneas: son lo único flexible del toolbar y, si cedieran, "Otro rango" se
+   quebraba y estiraba a todos por encima de la barra. */
+.scope-picker {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  --fade: 14px;
+  /* El padding aloja el fade y el anillo de foco; el margen lo devuelve al sitio. */
+  padding-block: 4px;
+  margin: -4px calc(-1 * var(--fade));
+}
 
 .scope {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex-shrink: 0;
+  white-space: nowrap;
   gap: 1px;
   padding: 5px 11px;
   border-radius: var(--r-sm);
@@ -129,8 +144,9 @@
 .scope-input input::placeholder { color: var(--text-faint); font-family: var(--mono); }
 .scope-input input.invalid { color: var(--danger); animation: nudge .35s var(--ease) both; }
 
-/* Presets */
-.presets { display: flex; gap: 4px; }
+/* Presets. Se pegan a la derecha; el margen automático absorbe el sobrante
+   sin sumar un gap propio, como haría un espaciador vacío. */
+.presets { display: flex; gap: 4px; margin-left: auto; }
 
 .preset {
   padding: 7px 13px;

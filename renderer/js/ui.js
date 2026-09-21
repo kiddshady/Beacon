@@ -55,19 +55,35 @@ export function installTooltips (node) {
 /**
  * Marca en qué extremo está el scroll para que el degradé de ese lado se retire.
  * Sin esto, el primer y el último elemento se ven esfumados estando quietos.
+ * En horizontal (`axis: 'x'`) marca start/end, y la rueda del mouse recorre la
+ * fila: nadie va a buscar una barra de scroll en un toolbar.
  */
-export function watchScrollFade (node) {
-  const update = () => {
-    const atTop = node.scrollTop <= 1
-    const atBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 1
+export function watchScrollFade (node, { axis = 'y' } = {}) {
+  const horizontal = axis === 'x'
+  const [first, last] = horizontal ? ['start', 'end'] : ['top', 'bottom']
 
-    node.dataset.at = atTop && atBottom ? 'both' : atTop ? 'top' : atBottom ? 'bottom' : ''
+  const update = () => {
+    const pos = horizontal ? node.scrollLeft : node.scrollTop
+    const size = horizontal ? node.clientWidth : node.clientHeight
+    const total = horizontal ? node.scrollWidth : node.scrollHeight
+    const atFirst = pos <= 1
+    const atLast = pos + size >= total - 1
+
+    node.dataset.at = atFirst && atLast ? 'both' : atFirst ? first : atLast ? last : ''
   }
 
   node.addEventListener('scroll', update, { passive: true })
   new ResizeObserver(update).observe(node)
   new MutationObserver(update).observe(node, { childList: true, subtree: true })
   update()
+
+  if (horizontal) {
+    node.addEventListener('wheel', e => {
+      if (e.deltaX || !e.deltaY || node.scrollWidth <= node.clientWidth) return
+      e.preventDefault()
+      node.scrollBy({ left: e.deltaY, behavior: 'smooth' })
+    }, { passive: false })
+  }
 
   return update
 }

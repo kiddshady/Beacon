@@ -142,8 +142,9 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify, list
   /* ── Bandeja ─────────────────────────────────────────────────────────── */
 
   function trayIcon () {
-    // build/ viaja adentro del asar; nativeImage lo lee igual.
-    const img = nativeImage.createFromPath(join(__dirname, '..', 'build', 'tray.png'))
+    // La misma placa que el ícono de la app, en un .ico con un render por cada
+    // escalado de Windows. build/ viaja adentro del asar; nativeImage lo lee igual.
+    const img = nativeImage.createFromPath(join(__dirname, '..', 'build', 'tray.ico'))
     return img.isEmpty() ? nativeImage.createFromPath(join(__dirname, '..', 'build', 'icon.png')).resize({ width: 32 }) : img
   }
 

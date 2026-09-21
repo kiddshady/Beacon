@@ -185,6 +185,27 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 .scroll-y[data-at='bottom'] { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade)); }
 .scroll-y[data-at='both']   { mask-image: none; }
 
+/* La versión horizontal: filas que no entran a lo ancho. Sin barra (la rueda
+   del mouse la recorre) y con el mismo criterio de fades que la vertical. */
+.scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-inline: var(--fade);
+  scroll-padding-inline: var(--fade);
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent 100%
+  );
+}
+.scroll-x::-webkit-scrollbar { display: none; }
+.scroll-x[data-at='start'] { mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%); }
+.scroll-x[data-at='end']   { mask-image: linear-gradient(to right, transparent 0, #000 var(--fade)); }
+.scroll-x[data-at='both']  { mask-image: none; }
+
 /* ── Tipografía ────────────────────────────────────────────────────────── */
 
 .mono {

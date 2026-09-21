@@ -50,6 +50,7 @@ async function boot () {
   paintIcons()
   installTooltips($('#tooltip'))
   watchScrollFade($('#side-body'))
+  watchScrollFade($('#scope-picker'), { axis: 'x' })
 
   try { if (localStorage.getItem('beacon.layout') === 'grid') state.layout = 'grid' } catch { /* sin storage, da igual */ }
   paintLayoutToggle()
@@ -173,6 +174,8 @@ function renderScopes () {
   chips.push(add)
 
   wrap.replaceChildren(...chips)
+  // Con muchas interfaces la fila scrollea: la elegida siempre queda a la vista.
+  wrap.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
 }
 
 function chooseScope (s) {
@@ -228,6 +231,7 @@ function editScope (chip) {
   chip.replaceWith(wrap)
   void wrap.offsetHeight
   wrap.classList.add('on')
+  wrap.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
   input.focus()
   input.select()
 }
