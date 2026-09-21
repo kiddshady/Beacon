@@ -81,7 +81,7 @@ const pingListeners = new Set()
 let pingTimer = null
 
 const watchListeners = new Set()
-let watchState = { enabled: false, intervalMin: 15, intervals: [5, 15, 30, 60], scopeId: null, cidr: null, running: false, lastRun: null, nextRun: null, lastCount: null }
+let watchState = { enabled: false, intervalMin: 15, intervals: [5, 15, 30, 60], scopeId: null, cidr: null, autostart: false, autostartAvailable: false, running: false, lastRun: null, nextRun: null, lastCount: null }
 let watchTimer = null
 const watchEmit = () => watchListeners.forEach(fn => fn(watchState))
 const updateListeners = new Set()
@@ -132,9 +132,9 @@ window.beacon = {
       key: `mac:${h.mac}`,
       alias: aliases[`mac:${h.mac}`] || null,
       memory: h.kind === 'media'
-        ? { seenBefore: false, isNew: true, firstSeen: null, lastSeen: null, seenCount: 0, previousIp: null }
+        ? { seenBefore: false, isNew: true, firstSeen: null, lastSeen: null, seenCount: 0, previousIp: null, newPorts: [] }
         : { seenBefore: true, isNew: false, firstSeen: t0 - (12 + i) * DAY, lastSeen: t0 - 3 * 3600000,
-            seenCount: 14 - i, previousIp: h.kind === 'sbc' ? '192.168.1.31' : null }
+            seenCount: 14 - i, previousIp: h.kind === 'sbc' ? '192.168.1.31' : null, newPorts: h.kind === 'nas' ? [22] : [] }
     })
     const hosts = HOSTS.map(remember)
     scanning = true
@@ -162,7 +162,8 @@ window.beacon = {
       added: [{ key: 'mac:3C:5A:B4:22:11:09', name: 'Tele del living', ip: '192.168.1.31', kind: 'media' }],
       missing: [{ key: 'mac:AA:BB:CC:00:11:22', name: 'Impresora HP', ip: '192.168.1.40', kind: 'printer',
                   vendor: 'HP Inc.', lastSeen: t0 - 2 * DAY }],
-      moved: [{ key: 'mac:B8:27:EB:14:9C:22', name: 'raspberrypi', from: '192.168.1.31', to: '192.168.1.24' }]
+      moved: [{ key: 'mac:B8:27:EB:14:9C:22', name: 'raspberrypi', from: '192.168.1.31', to: '192.168.1.24' }],
+      openedPorts: [{ key: 'mac:68:B9:C2:65:82:30', name: 'NAS Synology', ip: '192.168.1.18', ports: [22] }]
     })
     emit({ type: 'done', hosts, ms: Date.now() - t0, stopped: false })
     return hosts
@@ -256,6 +257,23 @@ window.beacon = {
     return { path: `C:\\Users\\vos\\Downloads\\${suggestedName}` }
   },
   async showInFolder () { return true },
+
+  // Historial simulado: unos cuantos escaneos de días distintos.
+  async history (cidr) {
+    const DAY = 86400000
+    const now = Date.now()
+    const hosts = HOSTS.map(h => ({ key: `mac:${h.mac}`, ip: h.ip, name: h.display, kind: h.kind, ports: h.ports.length }))
+    return {
+      netKey: cidr,
+      scans: 23,
+      history: [
+        { at: now - 5 * 60000, preset: 'who', count: 9, added: ['Tele del living'], missing: ['Impresora HP'], moved: ['raspberrypi (192.168.1.31 → 192.168.1.24)'], openedPorts: ['NAS Synology (22)'], hosts },
+        { at: now - 3 * 3600000, preset: 'quick', count: 9, added: [], missing: [], moved: [], openedPorts: [], hosts: hosts.slice(0, 9) },
+        { at: now - DAY - 2 * 3600000, preset: 'who', count: 8, added: [], missing: ['Chromecast'], moved: [], openedPorts: [], hosts: hosts.slice(0, 8) },
+        { at: now - 3 * DAY, preset: 'deep', count: 10, added: ['esphome-atom', 'Impresora HP'], missing: [], moved: [], openedPorts: [], hosts }
+      ]
+    }
+  },
 
   async wake (mac) { await sleep(200); return { mac, targets: ['192.168.1.255', '255.255.255.255'] } },
 

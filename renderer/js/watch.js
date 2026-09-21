@@ -29,7 +29,7 @@ function statusLine (w) {
   return { text: bits.join(' · ') }
 }
 
-export function installWatch ({ button, bridge, getScope }) {
+export function installWatch ({ button, bridge, getScope, getScopes }) {
   let pop = null
   let watch = { enabled: false, intervalMin: 15, intervals: [5, 15, 30, 60] }
   let closing = false
@@ -58,10 +58,18 @@ export function installWatch ({ button, bridge, getScope }) {
         <button class="switch" role="switch" aria-checked="${watch.enabled}" data-toggle><i></i></button>
       </header>
       <div class="watch-row">
+        <span class="watch-row-label">Red</span>
+        <span class="pills" data-scopes></span>
+      </div>
+      <div class="watch-row">
         <span class="watch-row-label">Barre la red cada</span>
         <span class="pills" data-intervals></span>
       </div>
       <p class="watch-status" data-status></p>
+      <div class="watch-row watch-autostart" data-autostart-row>
+        <span class="watch-row-label">Arrancar con Windows, en la bandeja</span>
+        <button class="switch small" role="switch" aria-checked="false" data-autostart><i></i></button>
+      </div>
       <p class="watch-note">Con la vigilancia activa, cerrar la ventana la manda a la bandeja,
         y te aviso cuando aparece alguien que no estaba.</p>
       <footer class="watch-foot">
@@ -71,6 +79,9 @@ export function installWatch ({ button, bridge, getScope }) {
     el.querySelector('[data-toggle]').addEventListener('click', () => {
       const enabled = !watch.enabled
       bridge.configure({ enabled, scopeId: enabled ? (getScope()?.id || null) : watch.scopeId }).then(apply)
+    })
+    el.querySelector('[data-autostart]').addEventListener('click', () => {
+      bridge.configure({ autostart: !watch.autostart }).then(apply)
     })
     el.querySelector('[data-now]').addEventListener('click', () => {
       if (!watch.enabled) bridge.configure({ enabled: true, scopeId: getScope()?.id || null }).then(apply)
@@ -83,6 +94,29 @@ export function installWatch ({ button, bridge, getScope }) {
     if (!pop) return
     const sw = pop.querySelector('[data-toggle]')
     sw.setAttribute('aria-checked', String(!!watch.enabled))
+
+    // Las redes: las detectadas y el rango a mano, si lo hay. La vigilada, marcada.
+    const scopes = (getScopes?.() || []).filter(s => s.sweepable)
+    const current = watch.enabled ? watch.scopeId : (getScope()?.id || null)
+    pop.querySelector('[data-scopes]').replaceChildren(...scopes.map(s => {
+      const b = document.createElement('button')
+      b.className = 'pill-btn'
+      b.type = 'button'
+      b.setAttribute('aria-pressed', String(s.id === current))
+      b.dataset.tip = s.cidr
+      b.textContent = s.custom ? `a mano ${s.cidr}` : s.label
+      b.addEventListener('click', () => bridge.configure({ scopeId: s.id }).then(apply))
+      return b
+    }))
+
+    const auto = pop.querySelector('[data-autostart]')
+    auto.setAttribute('aria-checked', String(!!watch.autostart))
+    const autoRow = pop.querySelector('[data-autostart-row]')
+    autoRow.classList.toggle('off', !watch.enabled)
+    autoRow.dataset.tip = watch.autostartAvailable
+      ? 'Al iniciar sesión, Beacon arranca escondida en la bandeja y sigue vigilando'
+      : 'Solo en la app instalada: en desarrollo no hay .exe que registrar'
+    auto.disabled = !watch.enabled || !watch.autostartAvailable
 
     const pills = pop.querySelector('[data-intervals]')
     pills.replaceChildren(...(watch.intervals || [5, 15, 30, 60]).map(m => {

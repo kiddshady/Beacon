@@ -57,6 +57,7 @@ renderer/
   js/about.js        acerca de: versión, actualizaciones, entorno
   js/watch.js        el popover de vigilancia
   js/export.js       exportar: JSON, CSV (con ; y BOM, para Excel) o PNG del radar
+  js/history.js      historial: cómo estaba la red cada vez que se la escaneó
   js/ui.js           tooltip, fade del scroll, nombres y fechas
   js/mock.js         puente falso para trabajar la UI sin Electron
 ```
@@ -88,7 +89,12 @@ renderer/
   **no contestó** respecto de la vez anterior (aparece apagado al final de la lista)
   y quién **cambió de IP**. La identidad es la MAC; los teléfonos con MAC aleatoria
   la mantienen por red, así que igual se reconocen. El primer escaneo de una red no
-  marca nada como nuevo: no habría con qué comparar.
+  marca nada como nuevo: no habría con qué comparar. También se acuerda de qué
+  **puertos** le vio abiertos a cada aparato: uno que nunca le vio es "puerto nuevo",
+  en el aviso, en el detalle y en la vigilancia (te avisa "al NAS se le abrió el 22").
+- **Historial.** El reloj en la cabecera del panel: los últimos 40 escaneos completos
+  de esta red — cuándo, con qué preset, cuántos aparatos, qué cambió — y cada fila se
+  despliega para ver quiénes estaban.
 - **Ponele nombre a las cosas.** En el detalle, el lápiz al lado del título. El alias
   reemplaza al nombre detectado en la lista, el detalle y el radar, y se queda.
 - **Radar y lista se hablan.** Pasás el mouse por una tarjeta y su punto se enciende;
@@ -126,7 +132,9 @@ renderer/
   barrer ahora, cambiar el intervalo, dejar de vigilar, salir) y **cerrar la ventana
   la esconde ahí** en vez de cerrar la app. Al volver de suspensión barre a los 30 s.
   Los barridos se ven en la ventana como un escaneo normal; un escaneo a mano en curso
-  nunca se interrumpe (el vigilante reintenta al minuto).
+  nunca se interrumpe (el vigilante reintenta al minuto). En el popover elegís qué red
+  vigilar (las detectadas o el rango a mano) y, en la app instalada, **arrancar con
+  Windows** escondida en la bandeja para que la vigilancia sobreviva a un reinicio.
 - **Atajos.** `Ctrl+Enter` escanea o detiene, `1`–`4` eligen qué escanear, `/` va al
   filtro, `G` cambia la vista, `Esc` hace lo más cercano (sale del campo, vuelve
   del detalle, detiene, limpia el filtro) y `Ctrl+,` abre Acerca de, donde están
@@ -190,6 +198,5 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Nada de la lista original. Ideas para la próxima hornada: arrancar con Windows
-  cuando la vigilancia está activa, avisar cuando a un aparato conocido se le abre un
-  puerto nuevo, historial de escaneos.
+- Nada pendiente de las dos hornadas. Lo que se me ocurre para después: avisar por
+  Telegram, IPv6, un modo "solo bandeja" sin ventana al arrancar la app a mano.

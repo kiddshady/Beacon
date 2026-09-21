@@ -8,7 +8,7 @@ import { Store } from './store.js'
  */
 const DEFAULTS = {
   version: 1,
-  watch: { enabled: false, intervalMin: 15, scopeId: null },
+  watch: { enabled: false, intervalMin: 15, scopeId: null, autostart: false },
   scopes: { custom: null }
 }
 

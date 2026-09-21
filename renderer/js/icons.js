@@ -44,6 +44,11 @@ export const ICONS = {
 
   check: S(`<path d="M4.5 12.5l5 5 10-11" stroke-width="2"/>`),
   back:  S(`<path d="M15 5l-7 7 7 7"/>`),
+  history: S(`
+    <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/>
+    <path d="M3 3.5v4.5h4.5"/>
+    <path d="M12 7.5V12l3 2"/>`),
+
   download: S(`
     <path d="M12 4v11"/>
     <path d="M7.5 11.5l4.5 4.5 4.5-4.5"/>

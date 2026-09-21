@@ -45,7 +45,10 @@ contextBridge.exposeInMainWorld('beacon', {
   /** Cómo llamás vos a un aparato. Vacío borra el alias y vuelve el nombre detectado. */
   setAlias: (key, alias, host) => ipcRenderer.invoke('device:alias', { key, alias, host }),
 
-  /** Vigilancia continua: estado, configurar (enabled / intervalMin / scopeId) y barrer ya. */
+  /** Los escaneos guardados de una red, del más reciente al más viejo. */
+  history: (cidr) => ipcRenderer.invoke('memory:history', cidr),
+
+  /** Vigilancia continua: estado, configurar (enabled / intervalMin / scopeId / autostart) y barrer ya. */
   watch: {
     state: () => ipcRenderer.invoke('watch:state'),
     configure: (patch) => ipcRenderer.invoke('watch:configure', patch),

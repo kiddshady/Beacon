@@ -2,7 +2,6 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { app, Tray, Menu, Notification, nativeImage, powerMonitor } from 'electron'
 import { getSettings, patchSettings } from './settings.js'
-import { listScopes } from './net/interfaces.js'
 
 /**
  * Vigilancia continua.
@@ -27,8 +26,8 @@ const RETRY_MS = 60 * 1000
 /** Al volver de suspensión la red suele haber cambiado: se mira pronto. */
 const RESUME_MS = 30 * 1000
 
-export function createWatcher ({ startScan, isScanning, showWindow, notify }) {
-  let cfg = { enabled: false, intervalMin: 15, scopeId: null }
+export function createWatcher ({ startScan, isScanning, showWindow, notify, listScopes }) {
+  let cfg = { enabled: false, intervalMin: 15, scopeId: null, autostart: false }
   let tray = null
   let timer = null
   let running = false
@@ -45,10 +44,30 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify }) {
       intervals: INTERVALS,
       scopeId: scope?.id || cfg.scopeId,
       cidr: scope?.cidr || null,
+      autostart: !!cfg.autostart,
+      // Registrar el arranque con Windows necesita el .exe instalado; en dev no hay.
+      autostartAvailable: app.isPackaged,
       running,
       lastRun,
       nextRun,
       lastCount
+    }
+  }
+
+  /**
+   * Arrancar con Windows, escondida en la bandeja. Solo tiene sentido con la
+   * vigilancia activa: sin ella no habría nada que hacer al arrancar.
+   */
+  function applyAutostart () {
+    if (!app.isPackaged) return
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: !!(cfg.autostart && cfg.enabled),
+        path: process.execPath,
+        args: ['--hidden']
+      })
+    } catch (err) {
+      console.warn(`[watch] no se pudo registrar el arranque con Windows: ${err.message}`)
     }
   }
 
@@ -91,8 +110,9 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify }) {
       const { hosts, diff } = await startScan({ presetId: PRESET, target: { scope }, watch: true })
       lastRun = Date.now()
       lastCount = hosts.length
-      console.log(`[watch] ${scope.cidr}: ${hosts.length} aparatos, ${diff?.added?.length || 0} nuevos, ${diff?.missing?.length || 0} ausentes`)
+      console.log(`[watch] ${scope.cidr}: ${hosts.length} aparatos, ${diff?.added?.length || 0} nuevos, ${diff?.missing?.length || 0} ausentes, ${diff?.openedPorts?.length || 0} con puertos nuevos`)
       if (diff?.added?.length) announce(diff.added)
+      if (diff?.openedPorts?.length) announcePorts(diff.openedPorts)
     } catch (err) {
       console.warn(`[watch] barrido falló: ${err.message}`)
     } finally {
@@ -109,6 +129,14 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify }) {
     const title = added.length === 1 ? 'Alguien nuevo en la red' : `${added.length} aparatos nuevos en la red`
     const body = names.slice(0, 4).join('\n') + (names.length > 4 ? `\n…y ${names.length - 4} más` : '')
     notify({ title, body })
+  }
+
+  function announcePorts (opened) {
+    const lines = opened.map(o => `${o.name}: ${o.ports.length === 1 ? 'puerto' : 'puertos'} ${o.ports.join(', ')}`)
+    const title = opened.length === 1
+      ? `Puerto nuevo en ${opened[0].name}`
+      : `Puertos nuevos en ${opened.length} aparatos`
+    notify({ title, body: lines.slice(0, 4).join('\n') + (lines.length > 4 ? `\n…y ${lines.length - 4} más` : '') })
   }
 
   /* ── Bandeja ─────────────────────────────────────────────────────────── */
@@ -185,6 +213,7 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify }) {
       schedule()
       dropTray()
     }
+    applyAutostart()
     emit()
     return state()
   }

@@ -43,7 +43,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => showWindow())
 }
 
-function createWindow () {
+function createWindow ({ hidden = false } = {}) {
   win = new BrowserWindow({
     width: 1320,
     height: 860,
@@ -60,7 +60,8 @@ function createWindow () {
     }
   })
 
-  win.once('ready-to-show', () => win.show())
+  // Arrancó con Windows para vigilar: se queda en la bandeja hasta que la busques.
+  win.once('ready-to-show', () => { if (!hidden) win.show() })
 
   if (isDev) win.loadURL(DEV_URL)
   else win.loadFile(join(__dirname, '..', 'dist', 'index.html'))
@@ -156,7 +157,8 @@ const watcher = createWatcher({
   startScan,
   isScanning: () => !!activeScan,
   showWindow,
-  notify
+  notify,
+  listScopes: allScopes
 })
 
 app.whenReady().then(async () => {
@@ -165,7 +167,9 @@ app.whenReady().then(async () => {
   if (app.isPackaged) { try { app.setAppUserModelId('com.kiddshady.beacon') } catch { /* sin soporte */ } }
 
   updater.registerIPC()
-  createWindow()
+  // `--hidden` lo pone el arranque con Windows; solo vale si la vigilancia sigue activa.
+  const hidden = process.argv.includes('--hidden') && !!(await getSettings()).watch?.enabled
+  createWindow({ hidden })
   // En dev no busca nada; empaquetada, consulta GitHub unos segundos después de abrir.
   updater.start(() => win)
   await watcher.init((state) => send('watch:state', state))
@@ -331,6 +335,8 @@ ipcMain.handle('device:wake', (_e, { mac, scope }) => wake(mac, { network: scope
 
 ipcMain.handle('ping:start', (_e, { ip, port }) => { pinger.start(ip, port); return true })
 ipcMain.handle('ping:stop', () => { pinger.stop(); return true })
+
+ipcMain.handle('memory:history', (_e, cidr) => memory.getHistory(cidr))
 
 ipcMain.handle('watch:state', () => watcher.state())
 ipcMain.handle('watch:configure', (_e, patch) => watcher.configure(patch))

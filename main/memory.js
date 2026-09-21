@@ -20,6 +20,8 @@ import { Store } from './store.js'
  */
 
 const EMPTY = { version: 1, devices: {}, networks: {} }
+/** Cuántos escaneos se recuerdan por red. Con diez aparatos cada uno, es poco espacio. */
+const HISTORY_MAX = 40
 
 const store = new Store(join(app.getPath('userData'), 'memory.json'), EMPTY)
 
@@ -38,9 +40,12 @@ function summarize (host) {
     vendor: host.vendor || null,
     kind: host.kind || 'unknown',
     isGateway: !!host.isGateway,
-    isSelf: !!host.isSelf
+    isSelf: !!host.isSelf,
+    ports: (host.ports || []).map(p => p.port)
   }
 }
+
+const portsOf = (host) => (host.ports || []).map(p => p.port)
 
 /**
  * Una sesión de escaneo sobre una red: congela lo que se sabía ANTES de empezar,
@@ -80,6 +85,10 @@ export async function openSession (netKey) {
     annotate (host) {
       const { key, device, last } = lookup(host)
       const seenBefore = !!device
+      // Un puerto abierto que nunca se le vio a este aparato. Solo si ya se le
+      // conocían puertos: un registro viejo sin esa lista no marca nada.
+      const known = device?.knownPorts
+      const newPorts = known ? portsOf(host).filter(p => !known.includes(p)) : []
       return {
         ...host,
         key,
@@ -92,7 +101,8 @@ export async function openSession (netKey) {
           firstSeen: device?.firstSeen || null,
           lastSeen: device?.lastSeen || null,
           seenCount: device?.seenCount || 0,
-          previousIp: last && last.ip !== host.ip ? last.ip : null
+          previousIp: last && last.ip !== host.ip ? last.ip : null,
+          newPorts
         }
       }
     },
@@ -106,15 +116,28 @@ export async function openSession (netKey) {
       const seenKeys = new Set()
       const added = []
       const moved = []
+      const openedPorts = []
 
       for (const host of hosts) {
         const { key, device, last } = lookup(host)
         seenKeys.add(key)
         const summary = summarize(host)
+        const ports = portsOf(host)
 
         if (device) {
           if (scannedBefore && last && last.ip !== host.ip) {
             moved.push({ key, name: device.alias || summary.display, from: last.ip, to: host.ip })
+          }
+          // Puertos que nunca se le vieron. Un registro anterior a esta lista se
+          // completa en silencio: si no, al actualizar todo sería "nuevo".
+          if (Array.isArray(device.knownPorts)) {
+            const opened = ports.filter(p => !device.knownPorts.includes(p))
+            if (opened.length) {
+              openedPorts.push({ key, name: device.alias || summary.display, ip: host.ip, ports: opened })
+              device.knownPorts = [...new Set([...device.knownPorts, ...ports])].sort((a, b) => a - b)
+            }
+          } else {
+            device.knownPorts = [...ports].sort((a, b) => a - b)
           }
           Object.assign(device, {
             lastSeen: now,
@@ -129,6 +152,7 @@ export async function openSession (netKey) {
             lastSeen: now,
             seenCount: 1,
             last: summary,
+            knownPorts: [...ports].sort((a, b) => a - b),
             networks: { [netKey]: { lastSeen: now, ip: host.ip } }
           }
           if (scannedBefore) added.push({ key, name: summary.display, ip: host.ip, kind: summary.kind })
@@ -154,6 +178,20 @@ export async function openSession (netKey) {
       // La foto de la red se reemplaza solo con un escaneo completo. Si no, un
       // escaneo cortado a los 2 segundos haría que la próxima vez todos "falten".
       if (complete) {
+        const entry = {
+          at: now,
+          preset,
+          count: hosts.length,
+          added: added.map(a => a.name),
+          missing: missing.map(m => m.name),
+          moved: moved.map(m => `${m.name} (${m.from} → ${m.to})`),
+          openedPorts: openedPorts.map(o => `${o.name} (${o.ports.join(', ')})`),
+          // Lo justo para reconstruir "cómo estaba la red ese día".
+          hosts: hosts.map(h => {
+            const { key, device } = lookup(h)
+            return { key, ip: h.ip, name: device?.alias || h.display || h.ip, kind: h.kind || 'unknown', ports: portsOf(h).length }
+          })
+        }
         data.networks[netKey] = {
           ...(net || {}),
           scans: (net?.scans || 0) + 1,
@@ -161,13 +199,25 @@ export async function openSession (netKey) {
             at: now,
             preset,
             hosts: hosts.map(h => ({ key: lookup(h).key, ...summarize(h) }))
-          }
+          },
+          history: [...(net?.history || []), entry].slice(-HISTORY_MAX)
         }
       }
 
       await store.save()
-      return { first: !scannedBefore, complete, added, missing, moved }
+      return { first: !scannedBefore, complete, added, missing, moved, openedPorts }
     }
+  }
+}
+
+/** Los escaneos guardados de una red, del más reciente al más viejo. */
+export async function getHistory (netKey) {
+  const data = await store.load()
+  const net = data.networks[netKey]
+  return {
+    netKey,
+    scans: net?.scans || 0,
+    history: [...(net?.history || [])].reverse()
   }
 }
 

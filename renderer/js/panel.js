@@ -184,6 +184,7 @@ function historyLine (host) {
   if (m.firstSeen) bits.push(`conocido desde el ${formatDate(m.firstSeen)}`)
   if (m.seenCount) bits.push(`visto ${m.seenCount} ${m.seenCount === 1 ? 'vez' : 'veces'}`)
   if (m.previousIp) bits.push(`antes en ${m.previousIp}`)
+  if (m.newPorts?.length) bits.push(`${m.newPorts.length === 1 ? 'puerto nuevo' : 'puertos nuevos'}: ${m.newPorts.join(', ')}`)
   const line = bits.join(' · ')
   return line ? line[0].toUpperCase() + line.slice(1) + '.' : null
 }
@@ -261,10 +262,12 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
       row.className = `port-row ${p.risk === 'warn' ? 'warn' : ''}`
       row.style.animationDelay = `${Math.min(i * 28, 320)}ms`
       const url = webUrl(host, p.port)
+      const isNew = host.memory?.newPorts?.includes(p.port)
+      if (isNew) row.classList.add('is-new')
       row.innerHTML = `
         <span class="port-num selectable">${p.port}</span>
         <span>
-          <span class="port-name">${esc(p.name)}</span>
+          <span class="port-name">${esc(p.name)}${isNew ? ' <span class="pill new">nuevo</span>' : ''}</span>
           <div class="port-what selectable">${esc(p.what)}</div>
           ${p.product ? `<div class="port-product selectable">${esc(p.product)}</div>` : ''}
         </span>
@@ -403,6 +406,7 @@ export function renderDiffNotice (container, diff) {
     if (diff.added.length) parts.push(`${diff.added.length === 1 ? 'nuevo' : 'nuevos'}: ${names(diff.added)}`)
     if (diff.missing.length) parts.push(`${diff.missing.length === 1 ? 'no contestó' : 'no contestaron'}: ${names(diff.missing)}`)
     if (diff.moved.length) parts.push(`${diff.moved.length === 1 ? 'cambió de IP' : 'cambiaron de IP'}: ${diff.moved.map(m => `${m.name} (${m.from} → ${m.to})`).join(', ')}`)
+    if (diff.openedPorts?.length) parts.push(`${diff.openedPorts.length === 1 ? 'puerto nuevo' : 'puertos nuevos'}: ${diff.openedPorts.map(o => `${o.name} (${o.ports.join(', ')})`).join(', ')}`)
     if (!parts.length) return
     message = parts.map(p => p[0].toUpperCase() + p.slice(1)).join(' · ')
   }

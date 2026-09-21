@@ -6,6 +6,7 @@ import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
 import { installWatch } from './watch.js'
 import { installExport } from './export.js'
+import { installHistory } from './history.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -85,6 +86,12 @@ async function boot () {
   watch = installWatch({
     button: $('#watch'),
     bridge: window.beacon.watch,
+    getScope: () => state.scope,
+    getScopes: () => state.scopes
+  })
+  installHistory({
+    button: $('#history'),
+    bridge: window.beacon,
     getScope: () => state.scope
   })
   installExport({
