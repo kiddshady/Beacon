@@ -168,6 +168,28 @@ window.beacon = {
     return hosts
   },
 
+  // Profundizar simulado: mismos eventos que un escaneo, marcados con `single`, y
+  // al aparato le aparecen puertos con versión y un sistema operativo.
+  async deepen (ip) {
+    const emit = (evt) => listeners.forEach(fn => fn({ ...evt, single: ip }))
+    const base = HOSTS.find(h => h.ip === ip)
+    if (!base) throw new Error(`no conozco ${ip}`)
+    const t0 = Date.now()
+    emit({ type: 'start', total: 1, cidr: ip, preset: 'deep', command: { full: `nmap -sT -sV --version-intensity 4 -T4 --top-ports 200 ${ip}`, parts: [{ flag: '-sT', note: 'conexión TCP completa' }, { flag: '-sV', note: 'identifica qué programa y qué versión atiende cada puerto' }, { flag: '--top-ports 200', note: 'los 200 puertos más frecuentes' }], target: ip, degraded: ['-sS', '-O'] } })
+    emit({ type: 'phase', phase: 'ports', label: 'Revisando 200 puertos en 1 dispositivo' })
+    let host = { ...base, key: `mac:${base.mac}`, alias: aliases[`mac:${base.mac}`] || null, memory: { seenBefore: true, isNew: false, seenCount: 3, firstSeen: t0 - 86400000 * 3, lastSeen: t0 - 3600000, previousIp: null } }
+    for (let i = 1; i <= 8; i++) { await sleep(180); emit({ type: 'progress', done: i * 25, total: 200 }) }
+    host = { ...host, ports: [...host.ports, P(8443, 'HTTPS alt', 'Web cifrada en puerto alternativo. Paneles de administración.', 'watch')] }
+    emit({ type: 'host:update', host })
+    emit({ type: 'phase', phase: 'nmap', label: 'nmap: analizando 1 dispositivo en profundidad (sin admin no se puede detectar el sistema operativo)' })
+    await sleep(900)
+    host = { ...host, ports: host.ports.map(p => ({ ...p, product: p.port === 22 ? 'OpenSSH 8.9p1 Ubuntu' : p.port === 80 ? 'nginx 1.24.0' : p.product || null })), os: { name: 'Linux 5.x', accuracy: 93 } }
+    emit({ type: 'host:update', host })
+    await sleep(300)
+    emit({ type: 'done', hosts: [host], ms: Date.now() - t0, stopped: false })
+    return [host]
+  },
+
   async stopScan () {
     if (!scanning) return true
     scanning = false

@@ -655,6 +655,9 @@
 }
 .detail-actions .btn svg { width: 13px; height: 13px; }
 .detail-actions .btn.flash { color: var(--text); background: var(--surface-3); }
+/* Profundizando: el botón queda tomado y su ícono gira, como un radar chico. */
+.detail-actions .btn.busy { opacity: 1; color: var(--text-soft); pointer-events: none; }
+.detail-actions .btn.busy svg { animation: spin 2.4s linear infinite; }
 
 /* Latencia en vivo: valor, sparkline, resumen. */
 .fact-ping b { display: block; transition: color var(--t-base) var(--ease); }

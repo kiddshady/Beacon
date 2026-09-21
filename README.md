@@ -97,6 +97,12 @@ renderer/
   cambia entre lista y grilla de dos columnas; se recuerda. El filtro aparece cuando
   hay algo que filtrar y busca en nombre, alias, IP, MAC, fabricante y puertos
   (número o nombre); cada palabra tiene que aparecer, en cualquier orden.
+- **Profundizar en uno solo.** Desde el detalle, **Profundizar** corre el escaneo
+  profundo (200 puertos y, con nmap, versión de cada servicio y sistema operativo)
+  contra ese aparato nada más, sin borrar lo que ya está en pantalla: los hallazgos se
+  funden en su tarjeta a medida que llegan, el anillo del radar crece, y el pie muestra
+  el comando nmap de ese solo host. Anotado con la memoria (alias, historial) pero sin
+  guardar: no es una foto de la red.
 - **El detalle hace cosas.** **Abrir panel** lleva al web del aparato si tiene un
   puerto típico abierto (443, 80, 8080, 5000 del Synology, 8123 de Home Assistant…);
   cada puerto web de la lista tiene también su flechita. **Despertar** manda el
@@ -184,4 +190,6 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Profundizar en un solo aparato desde el detalle.
+- Nada de la lista original. Ideas para la próxima hornada: arrancar con Windows
+  cuando la vigilancia está activa, avisar cuando a un aparato conocido se le abre un
+  puerto nuevo, historial de escaneos.

@@ -188,7 +188,7 @@ function historyLine (host) {
   return line ? line[0].toUpperCase() + line.slice(1) + '.' : null
 }
 
-export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen, onCopy } = {}) {
+export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen, onCopy, onDeepen, deepening = false } = {}) {
   const kind = host.kind || 'unknown'
   const ports = [...(host.ports || [])].sort((a, b) => {
     const rank = { warn: 0, watch: 1, ok: 2 }
@@ -215,6 +215,8 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
     </div>
 
     <div class="detail-actions">
+      ${onDeepen && !host.isSelf ? `<button class="btn btn-small${deepening ? ' busy' : ''}" data-deepen ${deepening ? 'disabled' : ''}
+        data-tip="Escaneo profundo solo de este aparato: 200 puertos y, con nmap, versión de cada servicio y sistema operativo">${icon('radar')}${deepening ? 'Profundizando…' : 'Profundizar'}</button>` : ''}
       ${panel ? `<button class="btn btn-small" data-open data-tip="${esc(panel)}">${icon('external')}Abrir panel</button>` : ''}
       ${host.mac && !host.isSelf ? `<button class="btn btn-small" data-wake data-tip="Manda el paquete mágico de Wake-on-LAN al broadcast de la red">${icon('power')}Despertar</button>` : ''}
       <button class="btn btn-small" data-copy data-tip="Copiar la IP">${icon('copy')}${esc(host.ip)}</button>
@@ -275,6 +277,7 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
   wrap.querySelector('.back-btn').addEventListener('click', () => onBack?.())
   wrap.querySelector('.edit')?.addEventListener('click', () => editAlias(wrap, host, onAlias))
   wrap.querySelector('[data-open]')?.addEventListener('click', () => onOpen?.(panel))
+  wrap.querySelector('[data-deepen]')?.addEventListener('click', () => onDeepen?.(host))
   wrap.querySelector('[data-copy]')?.addEventListener('click', (e) => {
     onCopy?.(host.ip)
     flash(e.currentTarget, `${icon('check')}Copiada`)

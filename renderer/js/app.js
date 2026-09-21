@@ -1,5 +1,5 @@
 import { paintIcons, icon } from './icons.js'
-import { installTooltips, watchScrollFade, formatMs, tweenNumber, afterExit } from './ui.js'
+import { installTooltips, watchScrollFade, formatMs, tweenNumber, afterExit, hostName } from './ui.js'
 import { Radar } from './radar.js'
 import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter, updatePing } from './panel.js'
 import { renderCommand } from './command.js'
@@ -28,6 +28,8 @@ const state = {
   filter: '',
   /** Ping en vivo del host abierto en el detalle. */
   ping: { ip: null, samples: [] },
+  /** IP que se está profundizando (escaneo de uno solo), o null. */
+  single: null,
   running: false,
   startedAt: 0,
   durationMs: null
@@ -292,6 +294,7 @@ function beginScan () {
   state.diff = null
   state.selected = null
   if (state.view === 'detail') state.view = 'list'
+  state.single = null
   stopPing()
   radar.clear()
   radar.startSweep()
@@ -325,6 +328,8 @@ function finish () {
 /* ── Eventos del motor ─────────────────────────────────────────────────── */
 
 function handleEvent (evt) {
+  if (evt.single) return handleSingleEvent(evt)
+
   switch (evt.type) {
     case 'start':
       // Un barrido de la vigilancia arranca sin que nadie toque el botón.
@@ -415,6 +420,82 @@ function renderLegend () {
   }))
 }
 
+/* ── Profundizar en uno solo ───────────────────────────────────────────── */
+
+/**
+ * Escaneo profundo de un solo aparato, desde su detalle. No borra nada: los
+ * hallazgos se funden en el host que ya está y el detalle se va actualizando.
+ */
+async function deepen (host) {
+  if (state.running || state.single) return
+  state.single = host.ip
+  renderSide()
+  try {
+    await window.beacon.deepen(host.ip, state.scope?.cidr)
+  } catch (err) {
+    renderNotice($('#notices'), `No se pudo profundizar: ${err.message}`)
+    state.single = null
+    renderSide()
+  }
+}
+
+/** Los eventos de un escaneo de uno solo: mismo host, misma tarjeta, sin tocar el resto. */
+function handleSingleEvent (evt) {
+  switch (evt.type) {
+    case 'start':
+      state.single = evt.single
+      $('#progress').classList.add('on')
+      $('#phase').classList.add('on')
+      $('#phase').classList.remove('done')
+      renderCommand({ lineEl: $('#command-line'), notesEl: $('#command-notes') }, evt.command)
+      break
+
+    case 'command':
+      renderCommand({ lineEl: $('#command-line'), notesEl: $('#command-notes') }, evt.command)
+      break
+
+    case 'phase':
+      $('#phase').textContent = evt.label
+      break
+
+    case 'progress': {
+      const pct = evt.total ? (evt.done / evt.total) * 100 : 0
+      $('#progress i').style.width = `${pct}%`
+      break
+    }
+
+    case 'host':
+    case 'host:update': {
+      // Solo se funde lo del aparato que ya estaba: un escaneo de uno no suma otros.
+      if (!state.hosts.has(evt.host.ip)) break
+      state.hosts.set(evt.host.ip, evt.host)
+      radar.update(evt.host)
+      updateStats()
+      renderLegend()
+      renderSide()
+      break
+    }
+
+    case 'notice':
+    case 'error':
+      renderNotice($('#notices'), evt.message)
+      break
+
+    case 'done': {
+      const host = state.hosts.get(evt.single)
+      const n = host?.ports?.length || 0
+      $('#phase').textContent = evt.stopped
+        ? `Profundización detenida — ${hostName(host || { ip: evt.single })}`
+        : `Listo — ${hostName(host || { ip: evt.single })}: ${n} puerto${n === 1 ? '' : 's'} en ${formatMs(evt.ms)}`
+      $('#phase').classList.add('done')
+      $('#progress').classList.remove('on')
+      state.single = null
+      renderSide()
+      break
+    }
+  }
+}
+
 function updateStats () {
   const hosts = [...state.hosts.values()]
   const ports = hosts.reduce((n, h) => n + (h.ports?.length || 0), 0)
@@ -437,7 +518,9 @@ function renderSide () {
         onAlias: host.key ? renameHost : null,
         onWake: (h) => window.beacon.wake(h.mac, state.scope),
         onOpen: (url) => window.beacon.openExternal(url),
-        onCopy: (text) => window.beacon.copy(text)
+        onCopy: (text) => window.beacon.copy(text),
+        onDeepen: window.beacon.deepen && !state.running ? deepen : null,
+        deepening: state.single === host.ip
       })
       if (state.ping.ip === host.ip) updatePing(body, state.ping.samples)
       return

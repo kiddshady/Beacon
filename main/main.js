@@ -186,17 +186,27 @@ app.on('window-all-closed', () => {
 
 /**
  * Corre un escaneo y lo cuenta al renderer evento por evento. Lo usan el botón
- * (por IPC) y la vigilancia (desde acá). Devuelve los hosts y el diff contra la
- * memoria, que es lo que la vigilancia necesita para saber si avisar.
+ * (por IPC), la vigilancia (desde acá) y "profundizar" desde el detalle.
+ * Devuelve los hosts y el diff contra la memoria, que es lo que la vigilancia
+ * necesita para saber si avisar.
+ *
+ * `single`: { ip, cidr } — un solo aparato. El alcance es esa IP (con la
+ * interfaz de su red, para que "esta máquina" y el router se reconozcan), los
+ * hosts salen anotados con la memoria de la red madre (alias, historial) pero
+ * no se guarda nada: no es una foto de la red. Todos los eventos van marcados.
  */
-async function startScan ({ presetId, target, watch = false }) {
+async function startScan ({ presetId, target, watch = false, single = null }) {
   scanner?.stop()
   const preset = PRESETS.find(p => p.id === presetId)
   if (!preset) throw new Error(`preset desconocido: ${presetId}`)
 
+  if (single) target = { scope: parseRange(single.ip, await listScopes()) }
+
   // La memoria compara contra la foto anterior de esta red. Un escaneo de "esta
   // máquina" sola no es una foto de la red: no se compara ni se guarda.
-  const session = preset.scope === 'self' ? null : await memory.openSession(target.scope.cidr)
+  const session = preset.scope === 'self'
+    ? null
+    : await memory.openSession(single ? single.cidr : target.scope.cidr)
   // El scanner emite `done` y devuelve sin esperar a nadie; el commit de la
   // memoria es asíncrono. Se guarda su promesa para esperarla antes de contestar,
   // si no el diff llega después de que ya se contestó (y la vigilancia no lo ve).
@@ -207,6 +217,7 @@ async function startScan ({ presetId, target, watch = false }) {
     target,
     onEvent: (evt) => {
       if (evt.type === 'start' && watch) evt.watch = true
+      if (single) evt.single = single.ip
       if (!session) return send('scan:event', evt)
 
       if (evt.type === 'host' || evt.type === 'host:update') {
@@ -214,6 +225,8 @@ async function startScan ({ presetId, target, watch = false }) {
       }
       if (evt.type === 'done') {
         evt.hosts = evt.hosts.map(h => session.annotate(h))
+        // Uno solo: anotado sí, guardado no.
+        if (single) return send('scan:event', evt)
         finishing = session.commit(evt.hosts, { preset: preset.id, complete: !evt.stopped })
           .then(diff => { send('scan:event', { type: 'diff', ...diff }); return diff })
           .catch(err => { send('scan:event', { type: 'notice', message: `No se pudo guardar la memoria de la red: ${err.message}` }); return null })
@@ -258,6 +271,7 @@ ipcMain.handle('scan:preview', (_e, { presetId, target }) =>
 )
 
 ipcMain.handle('scan:start', async (_e, { presetId, target }) => (await startScan({ presetId, target })).hosts)
+ipcMain.handle('scan:deepen', async (_e, { ip, cidr }) => (await startScan({ presetId: 'deep', single: { ip, cidr } })).hosts)
 
 ipcMain.handle('device:alias', (_e, { key, alias, host }) => memory.setAlias(key, alias, host))
 

@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('beacon', {
   previewCommand: (presetId, target) => ipcRenderer.invoke('scan:preview', { presetId, target }),
   startScan: (presetId, target) => ipcRenderer.invoke('scan:start', { presetId, target }),
   stopScan: () => ipcRenderer.invoke('scan:stop'),
+  /** Escaneo profundo de un solo aparato; los eventos llegan por onScanEvent marcados con `single`. */
+  deepen: (ip, cidr) => ipcRenderer.invoke('scan:deepen', { ip, cidr }),
 
   /** Los hallazgos llegan de a uno, mientras el barrido corre. */
   onScanEvent: (fn) => {
