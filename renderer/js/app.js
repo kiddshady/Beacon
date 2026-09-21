@@ -355,6 +355,7 @@ function handleEvent (evt) {
       else radar.add(evt.host)
 
       updateStats()
+      renderLegend()
       if (state.view === 'list') renderSide()
       else if (state.selected === evt.host.ip) renderSide()
       break
@@ -389,6 +390,29 @@ function handleEvent (evt) {
       break
     }
   }
+}
+
+/** La leyenda aparece con el primer aparato, y solo dice lo que hay en pantalla. */
+function renderLegend () {
+  const hosts = [...state.hosts.values()]
+  if (!hosts.length) return
+  const items = [['', 'contesta']]
+  if (hosts.some(h => (h.ports || []).length)) items.push(['ring', 'anillo: puertos abiertos'])
+  if (hosts.some(h => (h.ports || []).some(p => p.risk === 'warn'))) items.push(['warn', 'puerto riesgoso'])
+  if (hosts.some(h => h.memory?.isNew)) items.push(['new', 'nuevo en la red'])
+  if (hosts.some(h => h.isSelf)) items.push(['self', 'esta máquina'])
+
+  const legend = $('#radar-legend')
+  const key = items.map(i => i[0]).join('|')
+  if (legend.dataset.key === key) return
+  legend.dataset.key = key
+  legend.replaceChildren(...items.map(([cls, text], i) => {
+    const span = document.createElement('span')
+    span.className = `legend-item ${cls}`
+    span.style.animationDelay = `${i * 60}ms`
+    span.innerHTML = `<i></i>${text}`
+    return span
+  }))
 }
 
 function updateStats () {

@@ -225,6 +225,10 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
       <div class="fact"><span class="label">MAC</span><b class="selectable">${esc(host.mac || '—')}</b></div>
       <div class="fact"><span class="label">Fabricante</span><b class="selectable">${esc(host.vendor || '—')}</b>
         ${host.vendorNote ? `<span class="fact-note">${esc(host.vendorNote)}</span>` : ''}</div>
+      ${host.model || host.upnp?.server ? `<div class="fact">
+        <span class="label">${host.model ? 'Modelo' : 'Se presenta como'}</span>
+        <b class="selectable">${esc(host.model || host.upnp.server)}</b>
+        <span class="fact-note">${host.model ? 'lo dice el aparato, por UPnP' : 'cabecera SERVER de UPnP'}</span></div>` : ''}
       <div class="fact fact-ping">
         <span class="label">Latencia en vivo</span>
         <b data-ping-now>${host.latency != null ? `${host.latency} ms` : '—'}</b>

@@ -52,12 +52,25 @@ export const DEVICE_LABELS = {
  * @param {{ip:string, mac?:string|null, vendor?:string|null, name?:string|null,
  *           ports?:Array<{port:number}>, isGateway?:boolean, isSelf?:boolean}} host
  */
+/** Lo que el aparato dice ser por UPnP es la mejor pista que hay. */
+const UPNP_HINTS = {
+  MediaRenderer: 'media',
+  MediaServer: 'nas',
+  Printer: 'printer',
+  InternetGatewayDevice: 'router',
+  WFADevice: 'router',
+  DigitalSecurityCamera: 'camera'
+}
+
 export function fingerprint (host) {
   if (host.isSelf) return 'self'
   if (host.isGateway) return 'router'
 
+  const byUpnp = UPNP_HINTS[host.upnp?.deviceType]
+  if (byUpnp) return byUpnp
+
   const openPorts = (host.ports || []).map(p => p.port)
-  const haystack = `${host.vendor || ''} ${host.name || ''}`
+  const haystack = `${host.vendor || ''} ${host.name || ''} ${host.model || ''} ${host.upnp?.manufacturer || ''}`
 
   for (const [ports, kind] of PORT_HINTS) {
     if (ports.some(p => openPorts.includes(p))) return kind

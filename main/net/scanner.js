@@ -7,6 +7,7 @@ import { describePort, PROBE_PORTS } from './ports.js'
 import { fingerprint, displayName } from './fingerprint.js'
 import { PRESETS, RISKY_PORTS } from './presets.js'
 import { nmapInfo, runNmap, buildCommand } from './nmap.js'
+import { discoverUPnP } from './ssdp.js'
 
 const SWEEP_CONCURRENCY = 128
 const PORTSCAN_CONCURRENCY = 64
@@ -193,6 +194,10 @@ export class Scanner {
     const targets = [...this.hosts.values()]
     this.emit({ type: 'phase', phase: 'enrich', label: `Identificando ${targets.length} dispositivos` })
 
+    // UPnP corre a la par de los nombres: un M-SEARCH por multicast y otro
+    // directo a cada vivo, y se escucha mientras los demás resuelven.
+    const upnpP = discoverUPnP({ timeout: 2500, targets: targets.map(h => h.ip) }).catch(() => new Map())
+
     const jobs = targets.map(h => async () => {
       if (this.stopped) return
       const [vendorData, named] = await Promise.all([
@@ -204,6 +209,22 @@ export class Scanner {
     })
 
     await pool(jobs, 24, () => {}, this.#shouldStop)
+    if (this.stopped) return
+
+    for (const [ip, info] of await upnpP) {
+      const h = this.hosts.get(ip)
+      if (!h) continue
+      const patch = { upnp: info }
+      // El nombre que la persona le puso al aparato le gana al de NetBIOS y al
+      // DNS inverso, pero no al mDNS, que suele ser el mismo y ya lo tenemos.
+      if (info.friendlyName && (!h.name || h.nameSource === 'NetBIOS' || h.nameSource === 'DNS')) {
+        patch.name = info.friendlyName
+        patch.nameSource = 'UPnP'
+      }
+      if (info.modelName) patch.model = [info.modelName, info.modelNumber].filter(Boolean).join(' ')
+      if (!h.vendor && info.manufacturer) patch.vendor = info.manufacturer
+      this.emit({ type: 'host:update', host: this.#upsert(ip, patch) })
+    }
   }
 
   /* ── 4b. Medir la latencia de verdad ──────────────────────────────────── */

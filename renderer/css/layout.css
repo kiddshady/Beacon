@@ -247,6 +247,19 @@
   transform-box: fill-box;
 }
 .host-node.appearing .halo { animation: ping 1.1s var(--ease-out) forwards; }
+.host-node.appearing .halo.second { animation-delay: .28s; }
+
+/* Anillo de puertos: fino, crece con la cantidad. En ámbar si hay riesgo. */
+.host-node .ports {
+  fill: none;
+  stroke: var(--phosphor);
+  stroke-width: 1.2;
+  opacity: 0;
+  transition: r var(--t-slow) var(--ease-out), opacity var(--t-slow) var(--ease), stroke var(--t-base) var(--ease);
+}
+.host-node.has-ports.shown .ports { opacity: .38; }
+.host-node.has-ports:hover .ports, .host-node.has-ports.hot .ports, .host-node.has-ports.selected .ports { opacity: .7; }
+.host-node.risk-warn .ports { stroke: var(--warn); }
 
 .host-node .dot {
   fill: var(--phosphor);
@@ -333,6 +346,8 @@
 }
 .legend-item.warn i { background: var(--warn); box-shadow: 0 0 6px rgba(255,197,85,.5); }
 .legend-item.self i { background: var(--text); box-shadow: none; }
+.legend-item.ring i { width: 9px; height: 9px; background: transparent; box-shadow: 0 0 0 1px var(--phosphor) inset; opacity: .7; }
+.legend-item.new i { width: 9px; height: 9px; background: transparent; box-shadow: none; border: 1px dashed var(--phosphor); }
 
 /* ── Panel lateral ─────────────────────────────────────────────────────── */
 

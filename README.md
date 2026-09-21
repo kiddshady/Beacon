@@ -39,6 +39,7 @@ main/
     arp.js           lee la tabla ARP (parsea por regex, no por idioma de Windows)
     probe.js         knock TCP + pool con límite de concurrencia
     names.js         mDNS + NetBIOS + DNS inverso, en paralelo
+    ssdp.js          UPnP: el nombre y el modelo que el aparato dice tener
     data.js          bases OUI y de servicios (las toma de nmap si está)
     ports.js         qué es cada puerto, dicho como se lo explicarías a alguien
     fingerprint.js   adivina el tipo de aparato
@@ -64,6 +65,17 @@ renderer/
 
 - **El radar es determinista.** El ángulo sale de la IP y el radio de la latencia, así
   que el mismo aparato vuelve siempre al mismo lugar y podés memorizar tu red de vista.
+- **El radar cuenta algo, no solo ubica.** Un anillo fino alrededor del punto crece
+  con los puertos abiertos (más grande, más expuesto) y se pone ámbar si alguno es
+  riesgoso; el punteado marca al que no estaba la última vez; dos ondas al aparecer.
+  La leyenda de abajo dice solo lo que hay en pantalla.
+- **Los aparatos que se presentan solos.** Un M-SEARCH de UPnP por multicast (desde
+  cada interfaz, que con VirtualBox o WSL el "default" engaña) y otro directo a cada
+  vivo; el que contesta entrega su ficha con el nombre que le puso la persona y el
+  modelo. Ese nombre le gana a NetBIOS y al DNS inverso (no al mDNS) y el tipo UPnP
+  (MediaRenderer, Printer, InternetGatewayDevice…) manda sobre las demás pistas.
+  Teles, reproductores, consolas, NAS, impresoras y routers hablan UPnP; los Tuya y
+  compañía no — a esos se los bautiza a mano.
 - **Los hosts aparecen cuando el barrido les pasa por encima**, no cuando se descubren.
   Milisegundos de mentira piadosa que convierten una lista que se llena en algo que
   se siente como detectar.
@@ -172,5 +184,4 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Descubrimiento SSDP/UPnP para nombres reales de IoT.
-- Radar: anillo por puertos / ámbar si hay riesgo, onda al aparecer.
+- Profundizar en un solo aparato desde el detalle.

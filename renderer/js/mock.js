@@ -67,8 +67,9 @@ const HOSTS = [
             P(80, 'HTTP', 'Web sin cifrar. En la LAN suele ser el panel de configuración del aparato.', 'ok'),
             P(11434, 'Ollama', 'API de Ollama sirviendo modelos locales.', 'watch')] },
 
-  { ip: '192.168.1.31', mac: '3C:5A:B4:22:11:09', latency: 46, kind: 'media', display: 'Chromecast',
-    name: 'Chromecast-Living', nameSource: 'mDNS', vendor: 'Google Inc.',
+  { ip: '192.168.1.31', mac: '3C:5A:B4:22:11:09', latency: 46, kind: 'media', display: 'Tele del living',
+    name: 'Tele del living', nameSource: 'UPnP', vendor: 'Google Inc.', model: 'Chromecast Ultra',
+    upnp: { friendlyName: 'Tele del living', modelName: 'Chromecast Ultra', manufacturer: 'Google Inc.', deviceType: 'MediaRenderer', server: 'Linux/3.10 UPnP/1.0' },
     ports: [P(8008, 'puerto 8008', 'Servicio no identificado.', 'watch'),
             P(1900, 'UPnP', 'Descubrimiento automático de dispositivos. Smart TVs, consolas, Chromecast.', 'watch')] }
 ]
@@ -158,7 +159,7 @@ window.beacon = {
       type: 'diff',
       first: false,
       complete: true,
-      added: [{ key: 'mac:3C:5A:B4:22:11:09', name: 'Chromecast', ip: '192.168.1.31', kind: 'media' }],
+      added: [{ key: 'mac:3C:5A:B4:22:11:09', name: 'Tele del living', ip: '192.168.1.31', kind: 'media' }],
       missing: [{ key: 'mac:AA:BB:CC:00:11:22', name: 'Impresora HP', ip: '192.168.1.40', kind: 'printer',
                   vendor: 'HP Inc.', lastSeen: t0 - 2 * DAY }],
       moved: [{ key: 'mac:B8:27:EB:14:9C:22', name: 'raspberrypi', from: '192.168.1.31', to: '192.168.1.24' }]

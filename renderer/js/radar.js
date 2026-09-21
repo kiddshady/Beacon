@@ -180,16 +180,20 @@ export class Radar {
 
   #reveal (host) {
     const g = el('g', { class: 'host-node appearing' })
+    // Dos ondas al aparecer, una detrás de la otra: se lee como "detectado".
     const halo = el('circle', { class: 'halo', r: 13 })
+    const halo2 = el('circle', { class: 'halo second', r: 13 })
     // El anillo punteado marca a los que no estaban la última vez.
     const ring = el('circle', { class: 'mark', r: host.isGateway ? 20 : 16 })
+    // Y el anillo fino crece con los puertos abiertos: más grande, más expuesto.
+    const ports = el('circle', { class: 'ports', r: 0 })
     const dot = el('circle', { class: 'dot', r: host.isGateway ? 13 : 9 })
     const tag = el('text', { class: 'tag' })
 
-    g.append(halo, ring, dot, tag)
+    g.append(halo, halo2, ring, ports, dot, tag)
     this.hostsG.appendChild(g)
 
-    const node = { g, halo, ring, dot, tag, host }
+    const node = { g, halo, halo2, ring, ports, dot, tag, host }
     this.nodes.set(host.ip, node)
 
     this.#position(node)
@@ -215,7 +219,7 @@ export class Radar {
   }
 
   #position (node) {
-    const { host, halo, ring, dot, tag } = node
+    const { host, halo, halo2, ring, ports, dot, tag } = node
     const a = angleFor(host.ip)
     const r = radiusFor(host)
     const x = CX + Math.cos(a) * r
@@ -224,7 +228,7 @@ export class Radar {
     node.x = x
     node.y = y
 
-    for (const c of [halo, ring, dot]) { c.setAttribute('cx', x); c.setAttribute('cy', y) }
+    for (const c of [halo, halo2, ring, ports, dot]) { c.setAttribute('cx', x); c.setAttribute('cy', y) }
     tag.setAttribute('x', x)
     // La etiqueta del centro va arriba; si fuera abajo chocaría con el primer anillo.
     tag.setAttribute('y', host.isSelf ? y - 24 : y + 28)
@@ -257,7 +261,11 @@ export class Radar {
   }
 
   #style (node) {
-    const { g, host } = node
+    const { g, host, ports } = node
+    // Radio del anillo de puertos: nada con cero, y crece hasta doce puertos.
+    const n = (host.ports || []).length
+    ports.setAttribute('r', n ? (host.isGateway ? 17 : 13) + Math.min(n, 12) * 1.4 : 0)
+    g.classList.toggle('has-ports', n > 0)
     g.classList.toggle('is-self', !!host.isSelf)
     g.classList.toggle('risk-warn', (host.ports || []).some(p => p.risk === 'warn'))
     g.classList.toggle('is-new', !!host.memory?.isNew)
