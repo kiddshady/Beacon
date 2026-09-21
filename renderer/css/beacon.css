@@ -1,0 +1,285 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Beacon — sistema visual
+   Fósforo verde sobre negro. Un instrumento, no una página web.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Superficies, de abajo hacia arriba */
+  --bg:         #060a07;
+  --surface-1:  #0a1109;
+  --surface-2:  #0e180f;
+  --surface-3:  #142016;
+  --surface-4:  #1a291d;
+
+  /* El fósforo */
+  --phosphor:      #3dfb7d;
+  --phosphor-dim:  #2bbd5c;
+  --phosphor-deep: #175f31;
+  --phosphor-glow: rgba(61, 251, 125, 0.35);
+  --phosphor-wash: rgba(61, 251, 125, 0.08);
+
+  /* Texto, en escalera de énfasis */
+  --text:       #d6f2e0;
+  --text-soft:  #8fb99f;
+  --text-muted: #5c7d68;
+  --text-faint: #3d5546;
+
+  /* Estado */
+  --warn:   #ffc555;
+  --danger: #ff6b5f;
+  --idle:   #4a6553;
+
+  --warn-wash:   rgba(255, 197, 85, 0.12);
+  --danger-wash: rgba(255, 107, 95, 0.12);
+
+  /* Hairlines: contornos finos, nunca para separar planos */
+  --line:        rgba(61, 251, 125, 0.10);
+  --line-strong: rgba(61, 251, 125, 0.20);
+
+  /* Elevación */
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, .5), 0 0 0 1px rgba(61, 251, 125, .05) inset;
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, .55), 0 0 0 1px rgba(61, 251, 125, .07) inset;
+  --shadow-3: 0 12px 40px rgba(0, 0, 0, .65), 0 0 0 1px rgba(61, 251, 125, .09) inset;
+  --shadow-glow: 0 0 20px var(--phosphor-glow);
+
+  /* Movimiento */
+  --ease:      cubic-bezier(.4, 0, .2, 1);
+  --ease-out:  cubic-bezier(.16, 1, .3, 1);
+  --t-fast:    .13s;
+  --t-base:    .22s;
+  --t-slow:    .34s;
+
+  --r-sm: 5px;
+  --r:    8px;
+  --r-lg: 12px;
+
+  --font: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Mono', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+
+  --fade: 28px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* El chrome no se selecciona (se siente nativo); el contenido sí, siempre. */
+body { user-select: none; }
+.selectable, .mono, p, td, pre, code { user-select: text; }
+
+button, input, select { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; padding: 0; }
+
+/* ── Controles propios: nada de Chromium crudo ─────────────────────────── */
+
+::selection {
+  background: rgba(61, 251, 125, .26);
+  color: #eafff1;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(61, 251, 125, .12);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background var(--t-base) var(--ease);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(61, 251, 125, .3); background-clip: content-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--phosphor-dim);
+  border-radius: var(--r-sm);
+  transition: box-shadow var(--t-fast) var(--ease);
+}
+
+/* ── El vidrio del CRT ─────────────────────────────────────────────────── */
+
+.crt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9000;
+}
+
+/* Líneas de barrido: apenas perceptibles, es textura y no un efecto. */
+.crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, .16) 3px,
+    rgba(0, 0, 0, .16) 4px
+  );
+  opacity: .45;
+}
+
+/* Viñeteado: el tubo se apaga en los bordes. */
+.crt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 130% 110% at 50% 45%,
+    transparent 55%,
+    rgba(0, 0, 0, .45) 100%
+  );
+}
+
+/* ── Tooltip propio (nunca title=) ─────────────────────────────────────── */
+
+#tooltip {
+  position: fixed;
+  z-index: 9500;
+  padding: 6px 10px;
+  max-width: 320px;
+  background: var(--surface-4);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-2);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+#tooltip.on { opacity: 1; transform: translateY(0); }
+
+/* ── Fades de scroll: donde el contenido se corta, se esfuma ───────────── */
+
+.scroll-y {
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* El padding iguala al fade para que en reposo no coma ningún elemento. */
+  padding-block: var(--fade);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent 100%
+  );
+}
+/* En los extremos, el fade de ese lado se retira. */
+.scroll-y[data-at='top']    { mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent 100%); }
+.scroll-y[data-at='bottom'] { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade)); }
+.scroll-y[data-at='both']   { mask-image: none; }
+
+/* ── Tipografía ────────────────────────────────────────────────────────── */
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+
+.label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.glow { text-shadow: 0 0 12px var(--phosphor-glow); }
+
+/* ── Botones ───────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--text-soft);
+  box-shadow: var(--shadow-1);
+  transition:
+    background var(--t-base) var(--ease),
+    color var(--t-base) var(--ease),
+    box-shadow var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+.btn:hover { background: var(--surface-3); color: var(--text); }
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+
+.btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: var(--r-sm);
+  color: var(--phosphor);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--line-strong) inset;
+}
+.btn-small:hover { color: var(--phosphor); background: rgba(61, 251, 125, .14); }
+
+.btn-primary {
+  background: var(--phosphor-wash);
+  color: var(--phosphor);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--line-strong) inset;
+}
+.btn-primary:hover {
+  background: rgba(61, 251, 125, .16);
+  box-shadow: var(--shadow-2), var(--shadow-glow);
+}
+
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+.btn-icon:hover { background: var(--surface-3); color: var(--text); }
+
+/* ── Animaciones compartidas ───────────────────────────────────────────── */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ping {
+  0%   { opacity: .9; transform: scale(.4); }
+  70%  { opacity: 0;  transform: scale(2.6); }
+  100% { opacity: 0;  transform: scale(2.6); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .35; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.rise { animation: rise var(--t-slow) var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}

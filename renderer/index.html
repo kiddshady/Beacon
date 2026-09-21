@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>Beacon</title>
+  <link rel="stylesheet" href="./css/beacon.css" />
+  <link rel="stylesheet" href="./css/layout.css" />
+</head>
+<body>
+  <div class="app">
+
+    <header class="titlebar">
+      <div class="titlebar-drag">
+        <span class="brand" data-icon="beacon"></span>
+        <span class="brand-name">BEACON</span>
+        <span class="brand-sub mono" id="brand-sub"></span>
+      </div>
+      <div class="titlebar-controls">
+        <button class="btn-icon" id="win-min" data-icon="minimize" data-tip="Minimizar"></button>
+        <button class="btn-icon" id="win-max" data-icon="maximize" data-tip="Maximizar"></button>
+        <button class="btn-icon danger-hover" id="win-close" data-icon="close" data-tip="Cerrar"></button>
+      </div>
+    </header>
+
+    <nav class="toolbar">
+      <div class="scope-picker" id="scope-picker"></div>
+      <div class="toolbar-spacer"></div>
+      <div class="presets" id="presets"></div>
+      <button class="btn btn-primary" id="run" data-icon="play">Escanear</button>
+    </nav>
+
+    <main class="stage">
+      <section class="radar-pane">
+        <div class="radar-wrap" id="radar-wrap">
+          <div class="radar-sweep" id="radar-sweep"></div>
+          <svg class="radar" id="radar" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+            <g id="radar-grid"></g>
+            <g id="radar-hosts"></g>
+          </svg>
+          <div class="radar-empty" id="radar-empty">
+            <span data-icon="radar"></span>
+            <p>Tu red, sin escanear todavía.</p>
+            <p class="hint">Elegí qué querés saber y tocá <strong>Escanear</strong>.</p>
+          </div>
+        </div>
+        <div class="radar-legend" id="radar-legend"></div>
+      </section>
+
+      <section class="side">
+        <div class="side-head">
+          <div class="stat" id="stat-found"><b class="mono">0</b><span class="label">encontrados</span></div>
+          <div class="stat" id="stat-ports"><b class="mono">0</b><span class="label">puertos</span></div>
+          <div class="stat" id="stat-time"><b class="mono">—</b><span class="label">tiempo</span></div>
+          <button class="btn-icon" id="view-toggle" data-icon="grid" data-tip="Cambiar vista"></button>
+        </div>
+        <div class="progress" id="progress"><i></i></div>
+        <div class="phase mono" id="phase"></div>
+        <div class="notices" id="notices"></div>
+        <div class="scroll-y side-body" id="side-body"></div>
+      </section>
+    </main>
+
+    <footer class="command" id="command">
+      <div class="command-head">
+        <span class="label">Comando nmap equivalente</span>
+        <button class="btn-icon" id="copy-cmd" data-icon="copy" data-tip="Copiar al portapapeles"></button>
+      </div>
+      <code class="command-line mono selectable" id="command-line"></code>
+      <div class="command-notes" id="command-notes"></div>
+    </footer>
+
+  </div>
+
+  <div id="tooltip"></div>
+  <div class="crt"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

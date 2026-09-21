@@ -1,0 +1,11 @@
+node_modules/
+
+# Salida de vite (renderer compilado) y de electron-builder (instalador)
+dist/
+release/
+
+# Capturas de BEACON_CAPTURE y basura de sistema
+*.png
+!build/icon.png
+Thumbs.db
+.DS_Store
