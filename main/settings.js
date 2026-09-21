@@ -8,7 +8,8 @@ import { Store } from './store.js'
  */
 const DEFAULTS = {
   version: 1,
-  watch: { enabled: false, intervalMin: 15, scopeId: null }
+  watch: { enabled: false, intervalMin: 15, scopeId: null },
+  scopes: { custom: null }
 }
 
 const store = new Store(join(app.getPath('userData'), 'settings.json'), DEFAULTS)

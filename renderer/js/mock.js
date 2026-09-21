@@ -211,6 +211,29 @@ window.beacon = {
 
   openExternal (url) { window.open(url, '_blank', 'noopener') },
 
+  // Rango a mano simulado: valida lo básico y arma un scope parecido al real.
+  async customScope (text) {
+    const t = String(text).trim().replace(/\s+/g, '')
+    const m = /^(\d{1,3}(?:\.\d{1,3}){3})(?:\/(\d{1,2})|-(\d{1,3}))?$/.exec(t)
+    if (!m) throw new Error(`No entiendo «${t}». Probá 10.0.0.0/24, 192.168.1.1-50 o una IP.`)
+    const count = m[2] ? 2 ** (32 - Number(m[2])) - 2 : m[3] ? Number(m[3]) - Number(m[1].split('.')[3]) + 1 : 1
+    if (count > 4096) throw new Error(`Son ${count.toLocaleString('es')} direcciones y el tope es 4096 (un /20). Achicá el rango.`)
+    if (count < 1) throw new Error('El rango está al revés: el final es menor que el inicio.')
+    return { id: `custom::${t}`, iface: t.startsWith('192.168.1.') ? 'Ethernet' : 'A mano', label: 'A mano', kind: 'custom', custom: true,
+      text: t, cidr: t, nmapTarget: t, hostCount: count, sweepable: true, address: null, gateway: null }
+  },
+
+  // Exportar simulado: descarga el archivo desde el navegador; el PNG no se puede.
+  async exportSave ({ kind, suggestedName, data }) {
+    if (kind === 'png') throw new Error('en el navegador no hay captura del radar (solo en la app)')
+    const blob = new Blob([data], { type: kind === 'json' ? 'application/json' : 'text/csv' })
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: suggestedName })
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000)
+    return { path: `C:\\Users\\vos\\Downloads\\${suggestedName}` }
+  },
+  async showInFolder () { return true },
+
   async wake (mac) { await sleep(200); return { mac, targets: ['192.168.1.255', '255.255.255.255'] } },
 
   // Ping simulado: alrededor de la latencia del host, con algún corte de vez en cuando.

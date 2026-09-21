@@ -99,6 +99,36 @@
 .scope b { font-size: 12px; font-weight: 600; }
 .scope span { font-size: 10px; opacity: .7; font-family: var(--mono); }
 
+/* "Otro rango": un chip que al click se vuelve campo, del mismo tamaño. */
+.scope-add b { display: inline-flex; align-items: center; gap: 5px; }
+.scope-add svg { width: 12px; height: 12px; }
+.scope.custom[aria-pressed='true'] { box-shadow: 0 0 0 1px var(--line) inset; }
+
+.scope-input {
+  padding: 4px 6px;
+  justify-content: center;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--line-strong) inset, var(--shadow-1);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.scope-input.on { opacity: 1; }
+.scope-input.closing { opacity: 0; }
+.scope-input:focus-within { box-shadow: 0 0 0 1px var(--phosphor-dim) inset, var(--shadow-glow); }
+.scope-input input {
+  width: 190px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  transition: color var(--t-fast) var(--ease);
+}
+.scope-input input::placeholder { color: var(--text-faint); font-family: var(--mono); }
+.scope-input input.invalid { color: var(--danger); animation: nudge .35s var(--ease) both; }
+
 /* Presets */
 .presets { display: flex; gap: 4px; }
 
@@ -813,6 +843,25 @@
   animation: pop-in var(--t-base) var(--ease-out) both;
 }
 .popover.closing { animation: pop-out var(--t-fast) var(--ease) both; }
+
+/* Exportar: tres filas, cada una un formato. */
+.export-pop { width: 300px; padding-bottom: 10px; }
+.export-rows { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.export-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  text-align: left;
+  transition: background var(--t-base) var(--ease);
+}
+.export-row:hover { background: var(--surface-3); }
+.export-row[disabled] { opacity: .4; pointer-events: none; }
+.export-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.export-blurb { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.notice .btn { flex-shrink: 0; margin-left: auto; }
 
 .watch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .watch-title { font-size: 13px; font-weight: 600; color: var(--text); }

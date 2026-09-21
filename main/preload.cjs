@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('beacon', {
 
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
 
+  /** Un rango escrito a mano → scope listo para escanear (o error legible). */
+  customScope: (text) => ipcRenderer.invoke('scope:custom', text),
+
+  /** Exportar: JSON/CSV con `data`, o PNG capturando `rect` de la ventana. */
+  exportSave: (opts) => ipcRenderer.invoke('export:save', opts),
+  showInFolder: (path) => ipcRenderer.invoke('shell:show-item', path),
+
   /** Abre una dirección http(s) en el navegador del sistema. */
   openExternal: (url) => ipcRenderer.invoke('shell:open', url),
 

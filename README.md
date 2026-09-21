@@ -45,6 +45,7 @@ main/
     presets.js       los botones
     nmap.js          wrapper con parseo XML en streaming
     wol.js           el paquete mágico de Wake-on-LAN
+    range.js         un rango escrito a mano → scope (10.0.0.0/24, 192.168.1.1-50, una IP)
     ping.js          ping en vivo (ping.exe, con knock TCP de respaldo)
     scanner.js       orquesta todo y emite hallazgos a medida que aparecen
 renderer/
@@ -54,6 +55,7 @@ renderer/
   js/panel.js        lista y detalle
   js/about.js        acerca de: versión, actualizaciones, entorno
   js/watch.js        el popover de vigilancia
+  js/export.js       exportar: JSON, CSV (con ; y BOM, para Excel) o PNG del radar
   js/ui.js           tooltip, fade del scroll, nombres y fechas
   js/mock.js         puente falso para trabajar la UI sin Electron
 ```
@@ -90,6 +92,15 @@ renderer/
   **latencia en vivo**: un ping por segundo (con `ping.exe`, que no necesita admin y
   llega a los teléfonos donde el TCP se muere) con sparkline y mín/med/máx; los que no
   contestan se marcan en ámbar. Se corta al volver a la lista o esconder la ventana.
+- **Otra red, a mano.** El último chip del selector de redes se vuelve un campo:
+  una subred (`10.0.0.0/24`), un rango (`192.168.1.1-50` o `192.168.1.1-192.168.2.20`)
+  o una sola IP, hasta 4096 direcciones. Si cae adentro de una red local, hereda su
+  interfaz para que "Esta máquina" y el router se sigan reconociendo. Se recuerda el
+  último.
+- **Exportar.** El botón de descarga en la cabecera del panel: **JSON** con todo
+  (alias, puertos con explicación, memoria), **CSV** de una fila por aparato — con
+  punto y coma y BOM, que es lo que Excel en castellano abre bien —, o un **PNG del
+  radar** tal como se ve. Va a Descargas con nombre `beacon-<red>-<fecha>`.
 - **Vigilancia continua.** El botón **Vigilar** de la barra: cada 5, 15, 30 o 60
   minutos Beacon repite el barrido liviano (ARP + knock, dos segundos, sin puertos)
   sobre la red elegida y, si aparece alguien que la memoria no conocía, avisa con una
@@ -161,5 +172,5 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Exportar (JSON/CSV/PNG) y rango a mano.
 - Descubrimiento SSDP/UPnP para nombres reales de IoT.
+- Radar: anillo por puertos / ámbar si hay riesgo, onda al aparecer.

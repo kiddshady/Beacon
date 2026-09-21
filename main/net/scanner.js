@@ -57,18 +57,22 @@ export class Scanner {
     const { preset, target } = this
     const scope = target.scope
 
+    // Un rango a mano trae sus IPs ya listadas; una red detectada se expande acá.
     const ips = preset.scope === 'self'
-      ? [scope.address]
-      : scope.sweepable
-        ? hostsOf(scope.network, scope.prefix)
-        : []
+      ? [scope.address].filter(Boolean)
+      : scope.ips
+        ? scope.ips
+        : scope.sweepable
+          ? hostsOf(scope.network, scope.prefix)
+          : []
 
+    const nmapTarget = preset.scope === 'self' ? scope.address : (scope.nmapTarget || scope.cidr)
     this.emit({
       type: 'start',
       total: ips.length,
       cidr: preset.scope === 'self' ? scope.address : scope.cidr,
       preset: preset.id,
-      command: buildCommand(preset, preset.scope === 'self' ? scope.address : scope.cidr)
+      command: buildCommand(preset, nmapTarget)
     })
 
     try {
@@ -107,7 +111,9 @@ export class Scanner {
       this.emit({ type: 'host', host })
     }
 
-    // Esta máquina siempre está, aunque no figure en su propia tabla ARP.
+    // Esta máquina siempre está, aunque no figure en su propia tabla ARP. Salvo
+    // que el rango a mano sea de otra red: ahí no hay "esta máquina" que mostrar.
+    if (!scope.address || !this.#inScope(scope.address, scope)) return
     const known = this.hosts.has(scope.address)
     const self = this.#upsert(scope.address, {
       mac: scope.mac, alive: true, via: 'self', isSelf: true
@@ -281,7 +287,7 @@ export class Scanner {
     const alive = [...this.hosts.values()].filter(h => h.alive).map(h => h.ip)
     const targets = preset.scope === 'self'
       ? [scope.address]
-      : preset.nmapTargets === 'alive' ? alive : [scope.cidr]
+      : preset.nmapTargets === 'alive' ? alive : (scope.nmapTarget || scope.cidr).split(' ')
 
     if (!targets.length) return
 
@@ -344,6 +350,10 @@ export class Scanner {
 
   #inScope (ip, scope) {
     if (this.preset.scope === 'self') return ip === scope.address
+    if (scope.range) {
+      const n = ip.split('.').reduce((a, o) => ((a << 8) + (+o)) >>> 0, 0) >>> 0
+      return n >= scope.range.start && n <= scope.range.end
+    }
     const mask = scope.prefix === 0 ? 0 : (0xffffffff << (32 - scope.prefix)) >>> 0
     const toInt = s => s.split('.').reduce((a, o) => ((a << 8) + (+o)) >>> 0, 0) >>> 0
     return (toInt(ip) & mask) === (toInt(scope.network) & mask)

@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, shell, clipboard, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, clipboard, Notification, dialog } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -7,6 +8,8 @@ import { Scanner } from './net/scanner.js'
 import { nmapInfo, buildCommand } from './net/nmap.js'
 import { PRESETS } from './net/presets.js'
 import { wake } from './net/wol.js'
+import { parseRange } from './net/range.js'
+import { getSettings, patchSettings } from './settings.js'
 import { createPinger } from './net/ping.js'
 import * as updater from './updater.js'
 import * as memory from './memory.js'
@@ -230,10 +233,20 @@ async function startScan ({ presetId, target, watch = false }) {
 
 /* ── IPC ────────────────────────────────────────────────────────────────── */
 
+/** Las redes detectadas más, si lo hay, el último rango escrito a mano. */
+async function allScopes () {
+  const scopes = await listScopes()
+  const remembered = (await getSettings()).scopes?.custom
+  if (remembered) {
+    try { scopes.push(parseRange(remembered, scopes)) } catch { /* un rango viejo que ya no parsea: se olvida */ }
+  }
+  return scopes
+}
+
 ipcMain.handle('app:bootstrap', async () => ({
   version: app.getVersion(),
   versions: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node },
-  scopes: await listScopes(),
+  scopes: await allScopes(),
   nmap: await nmapInfo(),
   presets: PRESETS.map(({ id, label, blurb, needsNmap, needsAdmin }) => ({
     id, label, blurb, needsNmap, needsAdmin
@@ -247,6 +260,50 @@ ipcMain.handle('scan:preview', (_e, { presetId, target }) =>
 ipcMain.handle('scan:start', async (_e, { presetId, target }) => (await startScan({ presetId, target })).hosts)
 
 ipcMain.handle('device:alias', (_e, { key, alias, host }) => memory.setAlias(key, alias, host))
+
+/** Un rango a mano: se valida, se recuerda (uno solo, el último) y vuelve como scope. */
+ipcMain.handle('scope:custom', async (_e, text) => {
+  const scope = parseRange(text, await listScopes())
+  await patchSettings('scopes', { custom: scope.text })
+  return scope
+})
+
+/* ── Exportar ───────────────────────────────────────────────────────────── */
+
+const EXPORT_KINDS = {
+  json: { name: 'JSON', ext: 'json' },
+  csv: { name: 'CSV', ext: 'csv' },
+  png: { name: 'Imagen PNG', ext: 'png' }
+}
+
+/**
+ * Guarda el escaneo (o una foto del radar) donde la persona elija. El diálogo es
+ * del sistema: es la única forma decente de elegir un archivo. `rect` es la zona
+ * de la ventana a capturar para el PNG, en píxeles de la vista.
+ */
+ipcMain.handle('export:save', async (_e, { kind, suggestedName, data, rect }) => {
+  const meta = EXPORT_KINDS[kind]
+  if (!meta || !win) throw new Error(`no sé exportar «${kind}»`)
+
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: `Guardar ${meta.name}`,
+    defaultPath: join(app.getPath('downloads'), suggestedName || `beacon.${meta.ext}`),
+    filters: [{ name: meta.name, extensions: [meta.ext] }]
+  })
+  if (canceled || !filePath) return { canceled: true }
+
+  if (kind === 'png') {
+    const image = await win.webContents.capturePage(rect ? {
+      x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height)
+    } : undefined)
+    await writeFile(filePath, image.toPNG())
+  } else {
+    await writeFile(filePath, String(data), 'utf8')
+  }
+  return { path: filePath }
+})
+
+ipcMain.handle('shell:show-item', (_e, path) => { shell.showItemInFolder(String(path)); return true })
 
 /** Solo http(s) y solo a donde el renderer ya vio un puerto web: nada de file:// ni rarezas. */
 ipcMain.handle('shell:open', (_e, url) => {

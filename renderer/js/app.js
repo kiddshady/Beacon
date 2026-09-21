@@ -1,10 +1,11 @@
 import { paintIcons, icon } from './icons.js'
-import { installTooltips, watchScrollFade, formatMs, tweenNumber } from './ui.js'
+import { installTooltips, watchScrollFade, formatMs, tweenNumber, afterExit } from './ui.js'
 import { Radar } from './radar.js'
 import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter, updatePing } from './panel.js'
 import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
 import { installWatch } from './watch.js'
+import { installExport } from './export.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -28,7 +29,8 @@ const state = {
   /** Ping en vivo del host abierto en el detalle. */
   ping: { ip: null, samples: [] },
   running: false,
-  startedAt: 0
+  startedAt: 0,
+  durationMs: null
 }
 
 let radar
@@ -83,6 +85,21 @@ async function boot () {
     bridge: window.beacon.watch,
     getScope: () => state.scope
   })
+  installExport({
+    button: $('#export'),
+    bridge: window.beacon,
+    notices: $('#notices'),
+    radarPane: document.querySelector('.radar-pane'),
+    getData: () => ({
+      version: state.version,
+      scope: state.scope,
+      preset: state.preset,
+      startedAt: state.startedAt,
+      durationMs: state.durationMs,
+      hosts: [...state.hosts.values()],
+      missing: state.missing
+    })
+  })
   renderSide()
 }
 
@@ -122,23 +139,88 @@ function updateBrand () {
 
 function renderScopes () {
   const wrap = $('#scope-picker')
-  wrap.replaceChildren(...state.scopes.map(s => {
+  const chips = state.scopes.map(s => {
     const b = document.createElement('button')
     b.className = 'scope'
+    if (s.custom) b.classList.add('custom')
     b.setAttribute('aria-pressed', String(s.id === state.scope?.id))
-    b.dataset.tip = s.sweepable
-      ? `${s.iface} — ${s.hostCount} direcciones posibles`
-      : `${s.iface} — demasiado grande para barrer entera; se muestran los vecinos conocidos`
+    b.dataset.tip = s.custom
+      ? `Rango a mano — ${s.hostCount} direcciones${s.iface !== 'A mano' ? ` · dentro de ${s.iface}` : ''}`
+      : s.sweepable
+        ? `${s.iface} — ${s.hostCount} direcciones posibles`
+        : `${s.iface} — demasiado grande para barrer entera; se muestran los vecinos conocidos`
     if (!s.sweepable && s.kind !== 'mesh') b.disabled = true
     b.innerHTML = `<b>${s.label}</b><span>${s.cidr}</span>`
-    b.addEventListener('click', () => {
-      state.scope = s
-      renderScopes()
-      updateBrand()
-      refreshCommand()
-    })
+    b.addEventListener('click', () => chooseScope(s))
     return b
-  }))
+  })
+
+  // El último chip abre un campo para escribir una subred o un rango.
+  const add = document.createElement('button')
+  add.className = 'scope scope-add'
+  add.dataset.tip = 'Escaneá otra red: una subred (10.0.0.0/24), un rango (192.168.1.1-50) o una IP'
+  add.innerHTML = `<b>${icon('edit')}Otro rango</b><span>a mano</span>`
+  add.addEventListener('click', () => editScope(add))
+  chips.push(add)
+
+  wrap.replaceChildren(...chips)
+}
+
+function chooseScope (s) {
+  state.scope = s
+  renderScopes()
+  updateBrand()
+  refreshCommand()
+}
+
+/**
+ * El chip "Otro rango" se vuelve un campo. Enter valida en el principal y, si
+ * está bien, el rango entra como una red más (reemplaza al anterior a mano) y
+ * queda elegido. Esc o salir del campo lo cancelan.
+ */
+function editScope (chip) {
+  const current = state.scopes.find(s => s.custom)
+  const wrap = document.createElement('div')
+  wrap.className = 'scope scope-input'
+  wrap.innerHTML = `<input type="text" spellcheck="false" autocomplete="off" placeholder="10.0.0.0/24 · 192.168.1.1-50" maxlength="40">`
+  const input = wrap.querySelector('input')
+  input.value = current?.text || ''
+
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    window.beaconTip?.hide()
+    wrap.classList.add('closing')
+    afterExit(wrap, () => wrap.replaceWith(chip), { event: 'transitionend', property: 'opacity', ms: 300 })
+  }
+
+  input.addEventListener('keydown', async e => {
+    if (e.key === 'Escape') { e.stopPropagation(); finish(); return }
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const text = input.value.trim()
+    if (!text) { finish(); return }
+    try {
+      const scope = await window.beacon.customScope(text)
+      state.scopes = [...state.scopes.filter(s => !s.custom), scope]
+      done = true
+      chooseScope(scope)
+    } catch (err) {
+      input.classList.add('invalid')
+      input.dataset.tip = err.message
+      window.beaconTip?.show(input, err.message)
+      setTimeout(() => input.classList.remove('invalid'), 600)
+    }
+  })
+  input.addEventListener('input', () => { input.classList.remove('invalid'); delete input.dataset.tip; window.beaconTip?.hide() })
+  input.addEventListener('blur', () => setTimeout(finish, 120))
+
+  chip.replaceWith(wrap)
+  void wrap.offsetHeight
+  wrap.classList.add('on')
+  input.focus()
+  input.select()
 }
 
 /* ── Presets ───────────────────────────────────────────────────────────── */
@@ -302,6 +384,7 @@ function handleEvent (evt) {
         ? `Detenido — ${count}`
         : `Listo — ${count} en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`
       $('#stat-time b').textContent = formatMs(evt.ms)
+      state.durationMs = evt.ms
       finish()
       break
     }
