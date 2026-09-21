@@ -31,6 +31,8 @@ main/
   preload.cjs        puente al renderer
   updater.js         actualizaciones automáticas desde GitHub Releases
   memory.js          qué aparatos vio, en qué red, cuándo, y cómo los llamás vos
+  watch.js           vigilancia continua: reloj, bandeja, notificaciones
+  settings.js        lo que configuraste (settings.json en userData)
   store.js           un JSON en userData, escrito de forma atómica
   net/
     interfaces.js    detecta las subredes escaneables
@@ -49,6 +51,7 @@ renderer/
   js/radar.js        el radar
   js/panel.js        lista y detalle
   js/about.js        acerca de: versión, actualizaciones, entorno
+  js/watch.js        el popover de vigilancia
   js/ui.js           tooltip, fade del scroll, nombres y fechas
   js/mock.js         puente falso para trabajar la UI sin Electron
 ```
@@ -78,6 +81,14 @@ renderer/
   cambia entre lista y grilla de dos columnas; se recuerda. El filtro aparece cuando
   hay algo que filtrar y busca en nombre, alias, IP, MAC, fabricante y puertos
   (número o nombre); cada palabra tiene que aparecer, en cualquier orden.
+- **Vigilancia continua.** El botón **Vigilar** de la barra: cada 5, 15, 30 o 60
+  minutos Beacon repite el barrido liviano (ARP + knock, dos segundos, sin puertos)
+  sobre la red elegida y, si aparece alguien que la memoria no conocía, avisa con una
+  notificación del sistema. Mientras está activa hay un ícono en la bandeja (abrir,
+  barrer ahora, cambiar el intervalo, dejar de vigilar, salir) y **cerrar la ventana
+  la esconde ahí** en vez de cerrar la app. Al volver de suspensión barre a los 30 s.
+  Los barridos se ven en la ventana como un escaneo normal; un escaneo a mano en curso
+  nunca se interrumpe (el vigilante reintenta al minuto).
 - **Atajos.** `Ctrl+Enter` escanea o detiene, `1`–`4` eligen qué escanear, `/` va al
   filtro, `G` cambia la vista, `Esc` hace lo más cercano (sale del campo, vuelve
   del detalle, detiene, limpia el filtro) y `Ctrl+,` abre Acerca de, donde están
@@ -141,4 +152,5 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Vigilancia continua con ícono en la bandeja.
+- Wake-on-LAN, abrir el panel web del aparato, ping en vivo en el detalle.
+- Exportar (JSON/CSV/PNG) y rango a mano.

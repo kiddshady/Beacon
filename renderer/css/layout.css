@@ -118,6 +118,26 @@
 }
 
 #run svg { width: 13px; height: 13px; }
+
+/* Vigilar: un botón sobrio que, encendido, late. */
+.watch-btn { position: relative; gap: 7px; padding-right: 16px; }
+.watch-btn svg { width: 14px; height: 14px; }
+.watch-btn.on { color: var(--phosphor); background: var(--phosphor-wash); box-shadow: var(--shadow-1), 0 0 0 1px var(--line) inset; }
+.watch-btn[aria-expanded='true'] { background: var(--surface-3); color: var(--text); }
+.watch-btn.on[aria-expanded='true'] { color: var(--phosphor); }
+.watch-dot {
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 6px var(--phosphor-glow);
+  opacity: 0;
+  transform: scale(.4);
+  transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease-out);
+}
+.watch-btn.on .watch-dot { opacity: 1; transform: scale(1); }
+.watch-btn.busy .watch-dot { animation: blink 1.1s var(--ease) infinite; }
 #run.running { background: var(--danger-wash); color: var(--danger); box-shadow: var(--shadow-1); }
 
 /* ── Escenario ─────────────────────────────────────────────────────────── */
@@ -743,6 +763,83 @@
 .notice.update span { flex: 1; }
 .notice.update b { color: var(--text); font-weight: 600; }
 .notice.update .btn { flex-shrink: 0; }
+
+/* ── Popover (vigilancia) ──────────────────────────────────────────────── */
+
+.popover {
+  position: fixed;
+  z-index: 8000;
+  width: 340px;
+  padding: 14px 16px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3);
+  animation: pop-in var(--t-base) var(--ease-out) both;
+}
+.popover.closing { animation: pop-out var(--t-fast) var(--ease) both; }
+
+.watch-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.watch-title { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.watch-row { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--text-soft); }
+.watch-row-label { flex-shrink: 0; }
+
+.watch-status {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.watch-status.off { color: var(--text-muted); }
+.watch-status.live::after {
+  content: '';
+  display: inline-block;
+  width: 5px; height: 5px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--phosphor);
+  animation: blink 1.1s var(--ease) infinite;
+  vertical-align: middle;
+}
+
+.watch-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--text-muted); }
+.watch-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+.watch-foot .btn svg { width: 13px; height: 13px; }
+
+/* Switch propio: pista y perilla, nada del navegador. */
+.switch {
+  position: relative;
+  width: 36px; height: 20px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  background: var(--surface-4);
+  box-shadow: 0 0 0 1px var(--line) inset;
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.switch i {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--t-base) var(--ease-out), background var(--t-base) var(--ease);
+}
+.switch[aria-checked='true'] { background: var(--phosphor-deep); box-shadow: 0 0 0 1px var(--line-strong) inset; }
+.switch[aria-checked='true'] i { transform: translateX(16px); background: var(--phosphor); box-shadow: 0 0 8px var(--phosphor-glow); }
+
+/* Pastillas de opción: una elegida, las demás apagadas. */
+.pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.pill-btn {
+  padding: 4px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-family: var(--mono);
+  color: var(--text-muted);
+  background: var(--surface-3);
+  transition: background var(--t-base) var(--ease), color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.pill-btn:hover { color: var(--text); background: var(--surface-4); }
+.pill-btn[aria-pressed='true'] { color: var(--phosphor); background: var(--phosphor-wash); box-shadow: 0 0 0 1px var(--line-strong) inset; }
 
 /* ── Acerca de ─────────────────────────────────────────────────────────── */
 

@@ -19,6 +19,18 @@ contextBridge.exposeInMainWorld('beacon', {
   /** Cómo llamás vos a un aparato. Vacío borra el alias y vuelve el nombre detectado. */
   setAlias: (key, alias, host) => ipcRenderer.invoke('device:alias', { key, alias, host }),
 
+  /** Vigilancia continua: estado, configurar (enabled / intervalMin / scopeId) y barrer ya. */
+  watch: {
+    state: () => ipcRenderer.invoke('watch:state'),
+    configure: (patch) => ipcRenderer.invoke('watch:configure', patch),
+    now: () => ipcRenderer.invoke('watch:now'),
+    onState: (fn) => {
+      const handler = (_e, state) => fn(state)
+      ipcRenderer.on('watch:state', handler)
+      return () => ipcRenderer.off('watch:state', handler)
+    }
+  },
+
   /** Actualizaciones: estado actual, búsqueda manual, y reiniciar para instalar. */
   update: {
     state: () => ipcRenderer.invoke('update:state'),

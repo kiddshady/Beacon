@@ -4,6 +4,7 @@ import { Radar } from './radar.js'
 import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter } from './panel.js'
 import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
+import { installWatch } from './watch.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -30,6 +31,7 @@ const state = {
 
 let radar
 let about
+let watch
 
 /* ── Arranque ──────────────────────────────────────────────────────────── */
 
@@ -74,6 +76,11 @@ async function boot () {
 
   wireControls()
   watchUpdates()
+  watch = installWatch({
+    button: $('#watch'),
+    bridge: window.beacon.watch,
+    getScope: () => state.scope
+  })
   renderSide()
 }
 
@@ -178,12 +185,29 @@ async function run () {
   }
   if (!state.scope) return
 
+  beginScan()
+  try {
+    await window.beacon.startScan(state.preset, { scope: state.scope })
+  } catch (err) {
+    renderNotice($('#notices'), `No se pudo escanear: ${err.message}`)
+    finish()
+  }
+}
+
+/**
+ * Deja la interfaz en "escaneando": radar barriendo, lista vacía, botón en rojo.
+ * Lo hace el botón antes de pedir el escaneo, y también un barrido que arrancó
+ * solo (la vigilancia) cuando llega su evento de inicio.
+ */
+function beginScan () {
+  if (state.running) return
   state.running = true
   state.startedAt = Date.now()
   state.hosts.clear()
   state.missing = []
   state.diff = null
   state.selected = null
+  if (state.view === 'detail') state.view = 'list'
   radar.clear()
   radar.startSweep()
   for (const n of $('#notices').querySelectorAll('[data-kind="diff"]')) dismissNotice(n)
@@ -198,13 +222,6 @@ async function run () {
   $('#phase').classList.add('on')
   $('#phase').classList.remove('done')
   $('#side-body').replaceChildren()
-
-  try {
-    await window.beacon.startScan(state.preset, { scope: state.scope })
-  } catch (err) {
-    renderNotice($('#notices'), `No se pudo escanear: ${err.message}`)
-    finish()
-  }
 }
 
 function finish () {
@@ -225,6 +242,11 @@ function finish () {
 function handleEvent (evt) {
   switch (evt.type) {
     case 'start':
+      // Un barrido de la vigilancia arranca sin que nadie toque el botón.
+      if (evt.watch && !state.running) beginScan()
+      renderCommand({ lineEl: $('#command-line'), notesEl: $('#command-notes') }, evt.command)
+      break
+
     case 'command':
       renderCommand({ lineEl: $('#command-line'), notesEl: $('#command-notes') }, evt.command)
       break

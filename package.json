@@ -45,6 +45,7 @@
       "main/**/*",
       "dist/**/*",
       "data/**/*",
+      "build/tray.png",
       "package.json"
     ],
     "win": {

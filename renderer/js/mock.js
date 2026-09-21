@@ -76,6 +76,11 @@ const HOSTS = [
 const listeners = new Set()
 const aliases = {}
 let scanning = false
+
+const watchListeners = new Set()
+let watchState = { enabled: false, intervalMin: 15, intervals: [5, 15, 30, 60], scopeId: null, cidr: null, running: false, lastRun: null, nextRun: null, lastCount: null }
+let watchTimer = null
+const watchEmit = () => watchListeners.forEach(fn => fn(watchState))
 const updateListeners = new Set()
 let updateState = { phase: 'idle', version: '0.0.0-ui', reason: 'dev' }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
@@ -113,7 +118,7 @@ window.beacon = {
     }
   },
 
-  async startScan (presetId) {
+  async startScan (presetId, _target, { watch = false } = {}) {
     const emit = (evt) => listeners.forEach(fn => fn(evt))
     const t0 = Date.now()
     const DAY = 86400000
@@ -131,7 +136,7 @@ window.beacon = {
     const hosts = HOSTS.map(remember)
     scanning = true
 
-    emit({ type: 'start', total: 254, cidr: '192.168.1.0/24', preset: presetId })
+    emit({ type: 'start', total: 254, cidr: '192.168.1.0/24', preset: presetId, watch })
     emit({ type: 'phase', phase: 'arp', label: 'Leyendo vecinos conocidos' })
     await sleep(320)
 
@@ -170,6 +175,36 @@ window.beacon = {
   onScanEvent (fn) {
     listeners.add(fn)
     return () => listeners.delete(fn)
+  },
+
+  // Vigilancia simulada: el reloj corre acá, en segundos en vez de minutos.
+  watch: {
+    async state () { return watchState },
+    async configure (patch) {
+      const wasEnabled = watchState.enabled
+      watchState = { ...watchState, ...patch }
+      watchState.cidr = watchState.enabled ? (SCOPES.find(s => s.id === watchState.scopeId) || SCOPES[0]).cidr : null
+      clearTimeout(watchTimer)
+      if (watchState.enabled) {
+        watchState.nextRun = Date.now() + watchState.intervalMin * 60000
+        // Como el real: recién encendida barre ya; un cambio de intervalo solo reprograma.
+        if (!wasEnabled) watchTimer = setTimeout(() => window.beacon.watch.now(), 1500)
+      } else {
+        watchState.nextRun = null
+      }
+      watchEmit()
+      return watchState
+    },
+    async now () {
+      if (!watchState.enabled || watchState.running) return watchState
+      watchState = { ...watchState, running: true, nextRun: null }
+      watchEmit()
+      const hosts = await window.beacon.startScan('who', null, { watch: true })
+      watchState = { ...watchState, running: false, lastRun: Date.now(), lastCount: hosts.length, nextRun: Date.now() + watchState.intervalMin * 60000 }
+      watchEmit()
+      return watchState
+    },
+    onState (fn) { watchListeners.add(fn); return () => watchListeners.delete(fn) }
   },
 
   async setAlias (key, alias) {
