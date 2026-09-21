@@ -72,6 +72,27 @@ export function watchScrollFade (node) {
   return update
 }
 
+/* ── Salidas animadas ──────────────────────────────────────────────────── */
+
+/**
+ * Corre `fn` cuando termina la animación (o transición) de salida de `node`,
+ * o a lo sumo después de `ms`. El plazo no es adorno: con la ventana oculta o
+ * minimizada Chromium no avanza las animaciones y `animationend` no llega
+ * nunca — sin esto, un panel cerrado en ese momento quedaría pegado para siempre.
+ */
+export function afterExit (node, fn, { ms = 600, event = 'animationend', property } = {}) {
+  let done = false
+  const go = (e) => {
+    if (done) return
+    if (e && e.target !== node) return
+    if (e && property && e.propertyName !== property) return
+    done = true
+    fn()
+  }
+  node.addEventListener(event, go)
+  setTimeout(go, ms)
+}
+
 /* ── Varios ────────────────────────────────────────────────────────────── */
 
 /** El nombre que ve la persona: el que le puso ella, si no el detectado, si no la IP. */

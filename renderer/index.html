@@ -59,6 +59,15 @@
         <div class="progress" id="progress"><i></i></div>
         <div class="phase mono" id="phase"></div>
         <div class="notices" id="notices"></div>
+        <div class="filter-wrap" id="filter-wrap">
+          <div class="filter" id="filter">
+            <span class="filter-icon" data-icon="search"></span>
+            <input class="filter-input" id="filter-input" type="text" placeholder="Filtrar por nombre, IP, fabricante o puerto"
+                   spellcheck="false" autocomplete="off">
+            <span class="filter-count mono" id="filter-count"></span>
+            <button class="btn-icon filter-clear" id="filter-clear" data-icon="close" data-tip="Limpiar" tabindex="-1"></button>
+          </div>
+        </div>
         <div class="scroll-y side-body" id="side-body"></div>
       </section>
     </main>

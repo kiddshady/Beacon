@@ -75,6 +75,7 @@ const HOSTS = [
 
 const listeners = new Set()
 const aliases = {}
+let scanning = false
 const updateListeners = new Set()
 let updateState = { phase: 'idle', version: '0.0.0-ui', reason: 'dev' }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
@@ -128,6 +129,7 @@ window.beacon = {
             seenCount: 14 - i, previousIp: h.kind === 'sbc' ? '192.168.1.31' : null }
     })
     const hosts = HOSTS.map(remember)
+    scanning = true
 
     emit({ type: 'start', total: 254, cidr: '192.168.1.0/24', preset: presetId })
     emit({ type: 'phase', phase: 'arp', label: 'Leyendo vecinos conocidos' })
@@ -136,12 +138,15 @@ window.beacon = {
     emit({ type: 'phase', phase: 'sweep', label: 'Barriendo la subred' })
     for (let i = 0; i < hosts.length; i++) {
       await sleep(260 + Math.random() * 420)
+      if (!scanning) return hosts.slice(0, i)
       emit({ type: 'progress', done: Math.round(((i + 1) / hosts.length) * 254), total: 254 })
       emit({ type: 'host', host: { ...hosts[i], alive: true } })
     }
 
     emit({ type: 'phase', phase: 'enrich', label: `Identificando ${hosts.length} dispositivos` })
     await sleep(700)
+    if (!scanning) return hosts
+    scanning = false
     emit({
       type: 'diff',
       first: false,
@@ -156,6 +161,8 @@ window.beacon = {
   },
 
   async stopScan () {
+    if (!scanning) return true
+    scanning = false
     listeners.forEach(fn => fn({ type: 'done', hosts: HOSTS, ms: 0, stopped: true }))
     return true
   },

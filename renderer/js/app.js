@@ -1,7 +1,7 @@
 import { paintIcons, icon } from './icons.js'
 import { installTooltips, watchScrollFade, formatMs, tweenNumber } from './ui.js'
 import { Radar } from './radar.js'
-import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard } from './panel.js'
+import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard, matchesFilter } from './panel.js'
 import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
 
@@ -21,6 +21,9 @@ const state = {
   diff: null,
   selected: null,
   view: 'list',
+  /** Cómo se ve la lista: 'list' o 'grid'. Se recuerda entre sesiones. */
+  layout: 'list',
+  filter: '',
   running: false,
   startedAt: 0
 }
@@ -38,6 +41,9 @@ async function boot () {
   paintIcons()
   installTooltips($('#tooltip'))
   watchScrollFade($('#side-body'))
+
+  try { if (localStorage.getItem('beacon.layout') === 'grid') state.layout = 'grid' } catch { /* sin storage, da igual */ }
+  paintLayoutToggle()
 
   radar = new Radar({
     svg: $('#radar'),
@@ -141,13 +147,16 @@ function renderPresets () {
     else if (p.needsAdmin && !state.nmap?.elevated) tip += ' · sin admin se hace la versión reducida'
     b.dataset.tip = tip
 
-    b.addEventListener('click', () => {
-      state.preset = p.id
-      renderPresets()
-      refreshCommand()
-    })
+    b.addEventListener('click', () => choosePreset(p.id))
     return b
   }))
+}
+
+function choosePreset (id) {
+  if (!state.presets.some(p => p.id === id) || state.preset === id) return
+  state.preset = id
+  renderPresets()
+  refreshCommand()
 }
 
 async function refreshCommand () {
@@ -262,9 +271,11 @@ function handleEvent (evt) {
     case 'done': {
       const d = state.diff
       const quiet = d && !d.first && d.complete && !d.added.length && !d.missing.length && !d.moved.length
+      const n = state.hosts.size
+      const count = `${n} dispositivo${n === 1 ? '' : 's'}`
       $('#phase').textContent = evt.stopped
-        ? `Detenido — ${state.hosts.size} dispositivos`
-        : `Listo — ${state.hosts.size} dispositivos en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`
+        ? `Detenido — ${count}`
+        : `Listo — ${count} en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`
       $('#stat-time b').textContent = formatMs(evt.ms)
       finish()
       break
@@ -295,13 +306,57 @@ function renderSide () {
     }
   }
 
-  renderList(body, [...state.hosts.values()], {
+  body.classList.remove('grid')
+  const all = [...state.hosts.values()]
+  const hosts = all.filter(h => matchesFilter(h, state.filter))
+  const missing = state.missing.filter(m => matchesFilter(m, state.filter))
+
+  renderList(body, hosts, {
     selected: state.selected,
-    missing: state.missing,
+    missing,
+    layout: state.layout,
+    filter: state.filter,
     onSelect: (h) => selectHost(h.ip),
     onHover: (ip) => radar.highlight(ip)
   })
   paintIcons(body)
+  renderFilterBar(all.length + state.missing.length, hosts.length + missing.length)
+}
+
+/* ── Filtro y vista ────────────────────────────────────────────────────── */
+
+/** La barra aparece recién cuando hay algo que filtrar. */
+function renderFilterBar (total, shown) {
+  $('#filter-wrap').classList.toggle('on', total > 0 || !!state.filter)
+  $('#filter').classList.toggle('active', !!state.filter)
+  $('#filter-count').textContent = state.filter ? `${shown}/${total}` : ''
+}
+
+function setFilter (value) {
+  const next = value.trim()
+  if (next === state.filter && $('#filter-input').value === value) return
+  state.filter = next
+  if ($('#filter-input').value !== value) $('#filter-input').value = value
+  if (state.view === 'list') renderSide()
+}
+
+function clearFilter () {
+  setFilter('')
+}
+
+function toggleLayout () {
+  state.layout = state.layout === 'grid' ? 'list' : 'grid'
+  try { localStorage.setItem('beacon.layout', state.layout) } catch { /* sin storage, da igual */ }
+  paintLayoutToggle()
+  if (state.view === 'list') renderSide()
+}
+
+/** El botón muestra a qué vista se pasaría, no en cuál se está. */
+function paintLayoutToggle () {
+  const btn = $('#view-toggle')
+  const grid = state.layout === 'grid'
+  btn.innerHTML = icon(grid ? 'list' : 'grid')
+  btn.dataset.tip = grid ? 'Ver como lista (G)' : 'Ver como grilla (G)'
 }
 
 /** Guarda el alias y lo refleja en todos lados: tarjeta, detalle y etiqueta del radar. */
@@ -333,11 +388,16 @@ function wireControls () {
   $('#run').addEventListener('click', run)
 
   $('#view-toggle').addEventListener('click', () => {
-    state.view = state.view === 'detail' ? 'list' : 'list'
-    state.selected = null
-    radar.select(null)
-    renderSide()
+    if (state.view === 'detail') {
+      state.view = 'list'
+      state.selected = null
+      radar.select(null)
+    }
+    toggleLayout()
   })
+
+  $('#filter-input').addEventListener('input', e => setFilter(e.target.value))
+  $('#filter-clear').addEventListener('click', () => { clearFilter(); $('#filter-input').focus() })
 
   $('#copy-cmd').addEventListener('click', async () => {
     await window.beacon.copy($('#command-line').textContent)
@@ -352,15 +412,50 @@ function wireControls () {
 
   window.beacon.onScanEvent(handleEvent)
 
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && state.view === 'detail') {
+  document.addEventListener('keydown', onKey)
+}
+
+/**
+ * Atajos. Esc hace lo más cercano a lo que estás haciendo: sale del campo de
+ * filtro, vuelve del detalle, detiene el escaneo, o limpia el filtro — en ese
+ * orden. Las teclas sueltas no actúan mientras se escribe en un campo.
+ */
+function onKey (e) {
+  const mod = e.ctrlKey || e.metaKey
+  const typing = e.target.matches?.('input, textarea')
+
+  if (mod && e.key === 'Enter') { e.preventDefault(); run(); return }
+  if (mod && e.key === ',') { e.preventDefault(); about?.open(); return }
+
+  if (e.key === 'Escape') {
+    if (typing) { e.target.blur(); return }
+    if (state.view === 'detail') {
       state.view = 'list'
       state.selected = null
       radar.select(null)
       renderSide()
+      return
     }
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) run()
-  })
+    if (state.running) { window.beacon.stopScan(); return }
+    if (state.filter) clearFilter()
+    return
+  }
+
+  if (typing || mod || e.altKey) return
+
+  if (e.key === '/') {
+    e.preventDefault()
+    if (state.view === 'detail') { state.view = 'list'; state.selected = null; radar.select(null); renderSide() }
+    $('#filter-wrap').classList.add('on')
+    $('#filter-input').focus()
+    $('#filter-input').select()
+    return
+  }
+  if (e.key === 'g' || e.key === 'G') { toggleLayout(); return }
+  if (/^[1-9]$/.test(e.key)) {
+    const p = state.presets[Number(e.key) - 1]
+    if (p) choosePreset(p.id)
+  }
 }
 
 boot()

@@ -74,6 +74,14 @@ renderer/
   reemplaza al nombre detectado en la lista, el detalle y el radar, y se queda.
 - **Radar y lista se hablan.** Pasás el mouse por una tarjeta y su punto se enciende;
   pasás por un punto y su tarjeta se resalta (y se asoma si estaba fuera de vista).
+- **Lista o grilla, y un filtro.** El botón arriba a la derecha del panel (o `G`)
+  cambia entre lista y grilla de dos columnas; se recuerda. El filtro aparece cuando
+  hay algo que filtrar y busca en nombre, alias, IP, MAC, fabricante y puertos
+  (número o nombre); cada palabra tiene que aparecer, en cualquier orden.
+- **Atajos.** `Ctrl+Enter` escanea o detiene, `1`–`4` eligen qué escanear, `/` va al
+  filtro, `G` cambia la vista, `Esc` hace lo más cercano (sale del campo, vuelve
+  del detalle, detiene, limpia el filtro) y `Ctrl+,` abre Acerca de, donde están
+  todos listados.
 
 ## Scripts
 
@@ -133,4 +141,4 @@ prueba y borra el borrador al final.
 
 ## Pendiente
 
-- Vista de grilla (el botón está, todavía vuelve a la lista).
+- Vigilancia continua con ícono en la bandeja.

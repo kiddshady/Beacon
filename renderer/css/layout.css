@@ -288,7 +288,7 @@
 
 .side {
   display: grid;
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto auto 1fr;
   min-height: 0;
   background: var(--surface-1);
   box-shadow: -1px 0 0 var(--line);
@@ -354,6 +354,61 @@
 
 .side-body { padding-inline: 12px; min-height: 0; }
 
+/* ── Filtro ────────────────────────────────────────────────────────────── */
+
+/* Se despliega recién cuando hay algo que filtrar: la fila pasa de 0fr a 1fr
+   para que el espacio se abra en vez de aparecer de golpe. */
+.filter-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--t-slow) var(--ease);
+}
+.filter-wrap.on { grid-template-rows: 1fr; }
+.filter-wrap > .filter { min-height: 0; overflow: hidden; }
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin: 8px 12px 0;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-1);
+  opacity: 0;
+  transition: opacity var(--t-slow) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.filter-wrap.on .filter { opacity: 1; }
+.filter:focus-within { box-shadow: var(--shadow-1), 0 0 0 1px var(--line-strong) inset; }
+.filter.active { box-shadow: var(--shadow-1), 0 0 0 1px var(--line) inset; }
+
+.filter-icon { display: flex; color: var(--text-muted); transition: color var(--t-base) var(--ease); }
+.filter-icon svg { width: 14px; height: 14px; }
+.filter:focus-within .filter-icon, .filter.active .filter-icon { color: var(--phosphor); }
+
+.filter-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.filter-input::placeholder { color: var(--text-faint); }
+
+.filter-count { font-size: 11px; color: var(--text-muted); }
+.filter-clear {
+  width: 24px; height: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-base) var(--ease), background var(--t-base) var(--ease), color var(--t-base) var(--ease);
+}
+.filter-clear svg { width: 12px; height: 12px; }
+.filter.active .filter-clear { opacity: 1; pointer-events: auto; }
+
 /* ── Lista de dispositivos ─────────────────────────────────────────────── */
 
 .host-card {
@@ -395,6 +450,28 @@
 .host-card.ghost:active { transform: none; }
 .host-card.ghost .host-icon { color: var(--text-muted); background: var(--surface-2); }
 .ghost-head { padding: 10px 4px 6px; }
+
+/* Grilla: dos columnas de tarjetas verticales. Mismo markup, distinta forma. */
+.side-body.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-content: start;
+}
+.side-body.grid .host-card {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  align-items: start;
+  gap: 9px;
+  margin: 0;
+  padding: 12px 12px 11px;
+}
+.side-body.grid .host-icon { width: 36px; height: 36px; }
+.side-body.grid .host-icon svg { width: 18px; height: 18px; }
+.side-body.grid .host-sub { flex-wrap: wrap; row-gap: 2px; }
+.side-body.grid .host-right { flex-wrap: wrap; }
+.side-body.grid .ghost-head,
+.side-body.grid .empty-note { grid-column: 1 / -1; }
 
 .host-icon {
   display: grid;
@@ -754,6 +831,30 @@
 }
 .about-env dt { color: var(--text-muted); }
 .about-env dd { margin: 0; color: var(--text-soft); }
+
+.about-keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 12px;
+  align-items: center;
+}
+.about-keys dt { display: flex; align-items: center; gap: 3px; color: var(--text-muted); }
+.about-keys dd { margin: 0; color: var(--text-soft); }
+.about-keys kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-4);
+  box-shadow: 0 0 0 1px var(--line) inset, 0 1px 0 rgba(0, 0, 0, .4);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: center;
+}
 
 .about-links {
   display: flex;

@@ -1,5 +1,5 @@
 import { icon } from './icons.js'
-import { timeAgo } from './ui.js'
+import { timeAgo, afterExit } from './ui.js'
 
 /**
  * Panel "Acerca de": versión, estado de las actualizaciones y entorno.
@@ -88,6 +88,18 @@ export function installAbout ({ button, bridge, getInfo }) {
           </dl>
         </section>
 
+        <section class="about-section">
+          <h3 class="label">Atajos</h3>
+          <dl class="about-keys">
+            <dt><kbd>Ctrl</kbd><kbd>Enter</kbd></dt><dd>Escanear, o detener</dd>
+            <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Elegir qué escanear</dd>
+            <dt><kbd>/</kbd></dt><dd>Filtrar la lista</dd>
+            <dt><kbd>G</kbd></dt><dd>Lista o grilla</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Volver · detener · limpiar el filtro</dd>
+            <dt><kbd>Ctrl</kbd><kbd>,</kbd></dt><dd>Este panel</dd>
+          </dl>
+        </section>
+
         <footer class="about-links">
           <a href="${REPO}" target="_blank" rel="noopener">Repositorio ${icon('external')}</a>
           <a href="${REPO}/releases" target="_blank" rel="noopener">Versiones ${icon('external')}</a>
@@ -153,12 +165,12 @@ export function installAbout ({ button, bridge, getInfo }) {
     closing = true
     const node = overlay
     node.classList.add('closing')
-    node.querySelector('.about').addEventListener('animationend', () => {
+    afterExit(node.querySelector('.about'), () => {
       node.remove()
       overlay = null
       closing = false
       button.focus({ preventScroll: true })
-    }, { once: true })
+    })
   }
 
   function setUpdate (u) {

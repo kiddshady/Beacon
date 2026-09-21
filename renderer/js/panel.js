@@ -1,5 +1,5 @@
 import { icon } from './icons.js'
-import { hostName, timeAgo, formatDate } from './ui.js'
+import { hostName, timeAgo, formatDate, afterExit } from './ui.js'
 
 /** Traduce el tipo de aparato a algo que se lee, no a una clave interna. */
 const KIND_LABEL = {
@@ -39,11 +39,33 @@ function sortHosts (a, b) {
   return oct(a.ip) - oct(b.ip)
 }
 
-export function renderList (container, hosts, { selected, onSelect, onHover, missing = [] } = {}) {
+/**
+ * Texto contra el que se filtra un host: todo lo que alguien podría recordar
+ * de un aparato — cómo lo llama, la IP, la MAC, el fabricante, un puerto.
+ */
+function haystack (h) {
+  return [
+    h.alias, h.display, h.name, h.ip, h.mac, h.vendor, h.os?.name,
+    ...(h.ports || []).flatMap(p => [String(p.port), p.name, p.service, p.product])
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+/** Cada palabra del filtro tiene que aparecer, en cualquier orden. */
+export function matchesFilter (h, filter) {
+  const terms = filter.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!terms.length) return true
+  const hay = haystack(h)
+  return terms.every(t => hay.includes(t))
+}
+
+export function renderList (container, hosts, { selected, onSelect, onHover, missing = [], layout = 'list', filter = '' } = {}) {
   const sorted = [...hosts].sort(sortHosts)
+  container.classList.toggle('grid', layout === 'grid')
 
   if (!sorted.length && !missing.length) {
-    container.innerHTML = `<p class="empty-note">Todavía no apareció nadie.<br>
+    container.innerHTML = filter
+      ? `<p class="empty-note">Nada coincide con «${esc(filter)}».</p>`
+      : `<p class="empty-note">Todavía no apareció nadie.<br>
       Si recién arrancás, tocá <strong>Escanear</strong>.</p>`
     return
   }
@@ -237,10 +259,10 @@ function editAlias (wrap, host, onAlias) {
     done = true
     const value = input.value.trim()
     input.classList.add('closing')
-    input.addEventListener('transitionend', () => {
+    afterExit(input, () => {
       input.replaceWith(h2)
       name.classList.remove('editing')
-    }, { once: true })
+    }, { event: 'transitionend', property: 'opacity', ms: 300 })
     if (save && value !== (host.alias || '')) onAlias(host, value)
   }
 
@@ -297,7 +319,7 @@ export function renderUpdateNotice (container, { next, onInstall }) {
 export function dismissNotice (node) {
   if (!node || node.classList.contains('closing')) return
   node.classList.add('closing')
-  node.addEventListener('animationend', () => node.remove(), { once: true })
+  afterExit(node, () => node.remove())
 }
 
 /**
