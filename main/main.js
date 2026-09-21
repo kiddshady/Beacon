@@ -7,6 +7,7 @@ import { Scanner } from './net/scanner.js'
 import { nmapInfo, buildCommand } from './net/nmap.js'
 import { PRESETS } from './net/presets.js'
 import * as updater from './updater.js'
+import * as memory from './memory.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5273'
@@ -135,13 +136,37 @@ ipcMain.handle('scan:start', async (_e, { presetId, target }) => {
   const preset = PRESETS.find(p => p.id === presetId)
   if (!preset) throw new Error(`preset desconocido: ${presetId}`)
 
+  const send = (evt) => { if (!win?.isDestroyed()) win.webContents.send('scan:event', evt) }
+
+  // La memoria compara contra la foto anterior de esta red. Un escaneo de "esta
+  // máquina" sola no es una foto de la red: no se compara ni se guarda.
+  const session = preset.scope === 'self' ? null : await memory.openSession(target.scope.cidr)
+
   scanner = new Scanner({
     preset,
     target,
-    onEvent: (evt) => { if (!win?.isDestroyed()) win.webContents.send('scan:event', evt) }
+    onEvent: async (evt) => {
+      if (!session) return send(evt)
+
+      if (evt.type === 'host' || evt.type === 'host:update') {
+        evt.host = session.annotate(evt.host)
+      }
+      if (evt.type === 'done') {
+        evt.hosts = evt.hosts.map(h => session.annotate(h))
+        try {
+          const diff = await session.commit(evt.hosts, { preset: preset.id, complete: !evt.stopped })
+          send({ type: 'diff', ...diff })
+        } catch (err) {
+          send({ type: 'notice', message: `No se pudo guardar la memoria de la red: ${err.message}` })
+        }
+      }
+      send(evt)
+    }
   })
   return scanner.run()
 })
+
+ipcMain.handle('device:alias', (_e, { key, alias, host }) => memory.setAlias(key, alias, host))
 
 ipcMain.handle('scan:stop', () => { scanner?.stop(); return true })
 

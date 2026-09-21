@@ -74,6 +74,26 @@ export function watchScrollFade (node) {
 
 /* ── Varios ────────────────────────────────────────────────────────────── */
 
+/** El nombre que ve la persona: el que le puso ella, si no el detectado, si no la IP. */
+export function hostName (host) {
+  return host.alias || host.display || host.ip
+}
+
+export function timeAgo (ts) {
+  const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
+  if (s < 45) return 'recién'
+  const m = Math.round(s / 60)
+  if (m < 60) return `hace ${m} min`
+  const h = Math.round(m / 60)
+  if (h < 24) return `hace ${h} h`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'ayer' : `hace ${d} días`
+}
+
+export function formatDate (ts) {
+  return new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short' })
+}
+
 export function formatMs (ms) {
   if (ms == null) return '—'
   if (ms < 1000) return `${ms} ms`

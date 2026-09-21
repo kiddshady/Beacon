@@ -1,7 +1,7 @@
 import { paintIcons, icon } from './icons.js'
 import { installTooltips, watchScrollFade, formatMs, tweenNumber } from './ui.js'
 import { Radar } from './radar.js'
-import { renderList, renderDetail, renderNotice, renderUpdateNotice } from './panel.js'
+import { renderList, renderDetail, renderNotice, renderUpdateNotice, renderDiffNotice, dismissNotice, hotCard } from './panel.js'
 import { renderCommand } from './command.js'
 import { installAbout } from './about.js'
 
@@ -16,6 +16,9 @@ const state = {
   scope: null,
   preset: 'who',
   hosts: new Map(),
+  /** Los que estaban la última vez y ahora no contestaron (viene del diff). */
+  missing: [],
+  diff: null,
   selected: null,
   view: 'list',
   running: false,
@@ -40,7 +43,8 @@ async function boot () {
     svg: $('#radar'),
     sweep: $('#radar-sweep'),
     empty: $('#radar-empty'),
-    onSelect: (host) => selectHost(host.ip)
+    onSelect: (host) => selectHost(host.ip),
+    onHover: (host) => hotCard($('#side-body'), host?.ip || null)
   })
 
   const data = await window.beacon.bootstrap()
@@ -168,9 +172,12 @@ async function run () {
   state.running = true
   state.startedAt = Date.now()
   state.hosts.clear()
+  state.missing = []
+  state.diff = null
   state.selected = null
   radar.clear()
   radar.startSweep()
+  for (const n of $('#notices').querySelectorAll('[data-kind="diff"]')) dismissNotice(n)
 
   const btn = $('#run')
   btn.classList.add('running')
@@ -245,13 +252,23 @@ function handleEvent (evt) {
       renderNotice($('#notices'), evt.message)
       break
 
-    case 'done':
+    case 'diff':
+      state.diff = evt
+      state.missing = evt.missing || []
+      renderDiffNotice($('#notices'), evt)
+      if (state.view === 'list') renderSide()
+      break
+
+    case 'done': {
+      const d = state.diff
+      const quiet = d && !d.first && d.complete && !d.added.length && !d.missing.length && !d.moved.length
       $('#phase').textContent = evt.stopped
         ? `Detenido — ${state.hosts.size} dispositivos`
-        : `Listo — ${state.hosts.size} dispositivos en ${formatMs(evt.ms)}`
+        : `Listo — ${state.hosts.size} dispositivos en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`
       $('#stat-time b').textContent = formatMs(evt.ms)
       finish()
       break
+    }
   }
 }
 
@@ -270,16 +287,36 @@ function renderSide () {
   if (state.view === 'detail' && state.selected) {
     const host = state.hosts.get(state.selected)
     if (host) {
-      renderDetail(body, host, { onBack: () => { state.view = 'list'; state.selected = null; radar.select(null); renderSide() } })
+      renderDetail(body, host, {
+        onBack: () => { state.view = 'list'; state.selected = null; radar.select(null); renderSide() },
+        onAlias: host.key ? renameHost : null
+      })
       return
     }
   }
 
   renderList(body, [...state.hosts.values()], {
     selected: state.selected,
-    onSelect: (h) => selectHost(h.ip)
+    missing: state.missing,
+    onSelect: (h) => selectHost(h.ip),
+    onHover: (ip) => radar.highlight(ip)
   })
   paintIcons(body)
+}
+
+/** Guarda el alias y lo refleja en todos lados: tarjeta, detalle y etiqueta del radar. */
+async function renameHost (host, alias) {
+  try {
+    const saved = await window.beacon.setAlias(host.key, alias, host)
+    const current = state.hosts.get(host.ip)
+    if (current) {
+      current.alias = saved
+      radar.update(current)
+    }
+  } catch (err) {
+    renderNotice($('#notices'), `No se pudo guardar el nombre: ${err.message}`)
+  }
+  renderSide()
 }
 
 function selectHost (ip) {

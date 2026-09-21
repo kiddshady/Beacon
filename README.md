@@ -30,6 +30,8 @@ main/
   main.js            ventana, IPC, modo captura
   preload.cjs        puente al renderer
   updater.js         actualizaciones automáticas desde GitHub Releases
+  memory.js          qué aparatos vio, en qué red, cuándo, y cómo los llamás vos
+  store.js           un JSON en userData, escrito de forma atómica
   net/
     interfaces.js    detecta las subredes escaneables
     arp.js           lee la tabla ARP (parsea por regex, no por idioma de Windows)
@@ -47,6 +49,7 @@ renderer/
   js/radar.js        el radar
   js/panel.js        lista y detalle
   js/about.js        acerca de: versión, actualizaciones, entorno
+  js/ui.js           tooltip, fade del scroll, nombres y fechas
   js/mock.js         puente falso para trabajar la UI sin Electron
 ```
 
@@ -61,6 +64,16 @@ renderer/
   (bit "administrada localmente") y lo dice, en vez de mentir con "fabricante desconocido".
 - **El panel del comando enseña nmap.** Cada flag se arma en vivo con su explicación,
   y cuando algo no se puede hacer sin admin, lo dice y muestra con qué lo reemplaza.
+- **Beacon se acuerda de tu red.** Cada escaneo completo queda guardado
+  (`%APPDATA%/beacon/memory.json`). El siguiente marca quién es **nuevo**, quién
+  **no contestó** respecto de la vez anterior (aparece apagado al final de la lista)
+  y quién **cambió de IP**. La identidad es la MAC; los teléfonos con MAC aleatoria
+  la mantienen por red, así que igual se reconocen. El primer escaneo de una red no
+  marca nada como nuevo: no habría con qué comparar.
+- **Ponele nombre a las cosas.** En el detalle, el lápiz al lado del título. El alias
+  reemplaza al nombre detectado en la lista, el detalle y el radar, y se queda.
+- **Radar y lista se hablan.** Pasás el mouse por una tarjeta y su punto se enciende;
+  pasás por un punto y su tarjeta se resalta (y se asoma si estaba fuera de vista).
 
 ## Scripts
 

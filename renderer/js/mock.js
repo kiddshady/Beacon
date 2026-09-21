@@ -74,6 +74,7 @@ const HOSTS = [
 ]
 
 const listeners = new Set()
+const aliases = {}
 const updateListeners = new Set()
 let updateState = { phase: 'idle', version: '0.0.0-ui', reason: 'dev' }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
@@ -114,22 +115,44 @@ window.beacon = {
   async startScan (presetId) {
     const emit = (evt) => listeners.forEach(fn => fn(evt))
     const t0 = Date.now()
+    const DAY = 86400000
+
+    // Memoria simulada: el Chromecast es nuevo, la Pi cambió de IP, el resto es conocido.
+    const remember = (h, i) => ({
+      ...h,
+      key: `mac:${h.mac}`,
+      alias: aliases[`mac:${h.mac}`] || null,
+      memory: h.kind === 'media'
+        ? { seenBefore: false, isNew: true, firstSeen: null, lastSeen: null, seenCount: 0, previousIp: null }
+        : { seenBefore: true, isNew: false, firstSeen: t0 - (12 + i) * DAY, lastSeen: t0 - 3 * 3600000,
+            seenCount: 14 - i, previousIp: h.kind === 'sbc' ? '192.168.1.31' : null }
+    })
+    const hosts = HOSTS.map(remember)
 
     emit({ type: 'start', total: 254, cidr: '192.168.1.0/24', preset: presetId })
     emit({ type: 'phase', phase: 'arp', label: 'Leyendo vecinos conocidos' })
     await sleep(320)
 
     emit({ type: 'phase', phase: 'sweep', label: 'Barriendo la subred' })
-    for (let i = 0; i < HOSTS.length; i++) {
+    for (let i = 0; i < hosts.length; i++) {
       await sleep(260 + Math.random() * 420)
-      emit({ type: 'progress', done: Math.round(((i + 1) / HOSTS.length) * 254), total: 254 })
-      emit({ type: 'host', host: { ...HOSTS[i], alive: true } })
+      emit({ type: 'progress', done: Math.round(((i + 1) / hosts.length) * 254), total: 254 })
+      emit({ type: 'host', host: { ...hosts[i], alive: true } })
     }
 
-    emit({ type: 'phase', phase: 'enrich', label: `Identificando ${HOSTS.length} dispositivos` })
+    emit({ type: 'phase', phase: 'enrich', label: `Identificando ${hosts.length} dispositivos` })
     await sleep(700)
-    emit({ type: 'done', hosts: HOSTS, ms: Date.now() - t0, stopped: false })
-    return HOSTS
+    emit({
+      type: 'diff',
+      first: false,
+      complete: true,
+      added: [{ key: 'mac:3C:5A:B4:22:11:09', name: 'Chromecast', ip: '192.168.1.31', kind: 'media' }],
+      missing: [{ key: 'mac:AA:BB:CC:00:11:22', name: 'Impresora HP', ip: '192.168.1.40', kind: 'printer',
+                  vendor: 'HP Inc.', lastSeen: t0 - 2 * DAY }],
+      moved: [{ key: 'mac:B8:27:EB:14:9C:22', name: 'raspberrypi', from: '192.168.1.31', to: '192.168.1.24' }]
+    })
+    emit({ type: 'done', hosts, ms: Date.now() - t0, stopped: false })
+    return hosts
   },
 
   async stopScan () {
@@ -140,6 +163,11 @@ window.beacon = {
   onScanEvent (fn) {
     listeners.add(fn)
     return () => listeners.delete(fn)
+  },
+
+  async setAlias (key, alias) {
+    aliases[key] = alias?.trim() || null
+    return aliases[key]
   },
 
   async copy (text) {

@@ -44,6 +44,10 @@ export const ICONS = {
 
   check: S(`<path d="M4.5 12.5l5 5 10-11" stroke-width="2"/>`),
   back:  S(`<path d="M15 5l-7 7 7 7"/>`),
+  edit: S(`
+    <path d="M4 20h4l10.5-10.5a1.5 1.5 0 0 0 0-2.1l-1.9-1.9a1.5 1.5 0 0 0-2.1 0L4 16v4z"/>
+    <path d="M13.5 6.5l4 4"/>`),
+
   info: S(`
     <circle cx="12" cy="12" r="9"/>
     <path d="M12 11v5"/>

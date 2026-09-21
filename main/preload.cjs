@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('beacon', {
 
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
 
+  /** Cómo llamás vos a un aparato. Vacío borra el alias y vuelve el nombre detectado. */
+  setAlias: (key, alias, host) => ipcRenderer.invoke('device:alias', { key, alias, host }),
+
   /** Actualizaciones: estado actual, búsqueda manual, y reiniciar para instalar. */
   update: {
     state: () => ipcRenderer.invoke('update:state'),

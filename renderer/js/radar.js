@@ -12,6 +12,8 @@
  *    una lista que se llena en algo que se siente como detectar.
  */
 
+import { hostName } from './ui.js'
+
 const CX = 500
 const CY = 500
 const R_MIN = 100
@@ -49,7 +51,7 @@ function angleFor (ip) {
  */
 /** En el radar el espacio es escaso: el nombre largo completo vive en el panel. */
 function shortLabel (host) {
-  const name = host.display || host.ip
+  const name = hostName(host)
   return name.length > 20 ? `${name.slice(0, 19)}…` : name
 }
 
@@ -61,12 +63,13 @@ function radiusFor (host) {
 }
 
 export class Radar {
-  constructor ({ svg, sweep, empty, onSelect }) {
+  constructor ({ svg, sweep, empty, onSelect, onHover }) {
     this.gridG = svg.querySelector('#radar-grid')
     this.hostsG = svg.querySelector('#radar-hosts')
     this.sweepEl = sweep
     this.emptyEl = empty
     this.onSelect = onSelect
+    this.onHover = onHover
 
     this.nodes = new Map()
     this.pending = []
@@ -178,13 +181,15 @@ export class Radar {
   #reveal (host) {
     const g = el('g', { class: 'host-node appearing' })
     const halo = el('circle', { class: 'halo', r: 13 })
+    // El anillo punteado marca a los que no estaban la última vez.
+    const ring = el('circle', { class: 'mark', r: host.isGateway ? 20 : 16 })
     const dot = el('circle', { class: 'dot', r: host.isGateway ? 13 : 9 })
     const tag = el('text', { class: 'tag' })
 
-    g.append(halo, dot, tag)
+    g.append(halo, ring, dot, tag)
     this.hostsG.appendChild(g)
 
-    const node = { g, halo, dot, tag, host }
+    const node = { g, halo, ring, dot, tag, host }
     this.nodes.set(host.ip, node)
 
     this.#position(node)
@@ -194,9 +199,13 @@ export class Radar {
     g.addEventListener('mouseenter', (e) => {
       const h = node.host
       const ports = h.ports?.length ? ` · ${h.ports.length} puerto${h.ports.length > 1 ? 's' : ''}` : ''
-      window.beaconTip?.show(e.currentTarget, `${h.display || h.ip} — ${h.ip}${ports}`)
+      window.beaconTip?.show(e.currentTarget, `${hostName(h)} — ${h.ip}${ports}`)
+      this.onHover?.(h)
     })
-    g.addEventListener('mouseleave', () => window.beaconTip?.hide())
+    g.addEventListener('mouseleave', () => {
+      window.beaconTip?.hide()
+      this.onHover?.(null)
+    })
 
     // Un tick de reloj, no de frame: así también funciona con la ventana en segundo plano.
     setTimeout(() => {
@@ -206,7 +215,7 @@ export class Radar {
   }
 
   #position (node) {
-    const { host, halo, dot, tag } = node
+    const { host, halo, ring, dot, tag } = node
     const a = angleFor(host.ip)
     const r = radiusFor(host)
     const x = CX + Math.cos(a) * r
@@ -215,7 +224,7 @@ export class Radar {
     node.x = x
     node.y = y
 
-    for (const c of [halo, dot]) { c.setAttribute('cx', x); c.setAttribute('cy', y) }
+    for (const c of [halo, ring, dot]) { c.setAttribute('cx', x); c.setAttribute('cy', y) }
     tag.setAttribute('x', x)
     // La etiqueta del centro va arriba; si fuera abajo chocaría con el primer anillo.
     tag.setAttribute('y', host.isSelf ? y - 24 : y + 28)
@@ -251,7 +260,15 @@ export class Radar {
     const { g, host } = node
     g.classList.toggle('is-self', !!host.isSelf)
     g.classList.toggle('risk-warn', (host.ports || []).some(p => p.risk === 'warn'))
+    g.classList.toggle('is-new', !!host.memory?.isNew)
     g.classList.toggle('selected', this.selected === host.ip)
+  }
+
+  /** Resalta el punto de un host cuando el mouse pasa por su tarjeta, y al revés. */
+  highlight (ip) {
+    for (const [hostIp, node] of this.nodes) {
+      node.g.classList.toggle('hot', hostIp === ip)
+    }
   }
 
   select (ip) {

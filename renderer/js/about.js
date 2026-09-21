@@ -1,4 +1,5 @@
 import { icon } from './icons.js'
+import { timeAgo } from './ui.js'
 
 /**
  * Panel "Acerca de": versión, estado de las actualizaciones y entorno.
@@ -12,15 +13,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 
 const REPO = 'https://github.com/kiddshady/Beacon'
-
-function timeAgo (ts) {
-  const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
-  if (s < 45) return 'recién'
-  const m = Math.round(s / 60)
-  if (m < 60) return `hace ${m} min`
-  const h = Math.round(m / 60)
-  return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} d`
-}
 
 function formatBytes (n) {
   if (!n) return ''

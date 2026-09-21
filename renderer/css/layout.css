@@ -224,6 +224,24 @@
 .host-node.risk-warn .halo { stroke: var(--warn); }
 .host-node.is-self .dot { fill: var(--text); }
 
+/* Caliente: el mouse está sobre su tarjeta. Mismo trato que el hover directo. */
+.host-node.hot .dot { filter: drop-shadow(0 0 12px var(--phosphor)); }
+.host-node.hot .tag { opacity: 1; fill: var(--text); }
+
+/* Nuevo en la red: un anillo punteado que gira despacio alrededor del punto. */
+.host-node .mark {
+  fill: none;
+  stroke: var(--phosphor);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 5;
+  opacity: 0;
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: opacity var(--t-slow) var(--ease);
+}
+.host-node.is-new.shown .mark { opacity: .7; animation: spin 14s linear infinite; }
+.host-node.is-new .tag { fill: var(--phosphor); }
+
 /* Estado vacío */
 .radar-empty {
   position: absolute;
@@ -362,6 +380,21 @@
   background: var(--surface-3);
   box-shadow: var(--shadow-2), 0 0 0 1px var(--line-strong) inset;
 }
+/* Caliente: el mouse está sobre su punto en el radar. */
+.host-card.hot { background: var(--surface-3); box-shadow: var(--shadow-2), 0 0 0 1px var(--line) inset; }
+.host-card.is-new .host-icon { color: var(--phosphor); box-shadow: 0 0 0 1px var(--line-strong) inset; }
+
+/* Fantasma: estaba la última vez, hoy no contestó. Se ve, no se toca. */
+.host-card.ghost {
+  cursor: default;
+  opacity: .55;
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--line) inset;
+}
+.host-card.ghost:hover { background: transparent; box-shadow: 0 0 0 1px var(--line) inset; }
+.host-card.ghost:active { transform: none; }
+.host-card.ghost .host-icon { color: var(--text-muted); background: var(--surface-2); }
+.ghost-head { padding: 10px 4px 6px; }
 
 .host-icon {
   display: grid;
@@ -413,6 +446,7 @@
 }
 .pill.warn { background: var(--warn-wash); color: var(--warn); }
 .pill.phosphor { background: var(--phosphor-wash); color: var(--phosphor); }
+.pill.new { background: var(--phosphor); color: var(--bg); font-family: var(--font); font-weight: 600; letter-spacing: .04em; }
 
 /* ── Detalle ───────────────────────────────────────────────────────────── */
 
@@ -437,6 +471,39 @@
   text-overflow: ellipsis;
 }
 .detail-title p { margin: 1px 0 0; font-size: 11.5px; color: var(--text-muted); }
+
+.detail-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.detail-name h2 { flex: 1; min-width: 0; }
+.detail-name .edit {
+  width: 24px; height: 24px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--t-base) var(--ease), background var(--t-base) var(--ease), color var(--t-base) var(--ease);
+}
+.detail-name .edit svg { width: 13px; height: 13px; }
+.detail-head:hover .detail-name .edit, .detail-name .edit:focus-visible { opacity: 1; }
+
+/* El campo hereda el tamaño del título: al editar, el nombre no salta de lugar. */
+.alias-input {
+  flex: 1;
+  min-width: 0;
+  margin: -3px 0 -3px -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-4);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--line-strong) inset, var(--shadow-1);
+  outline: none;
+  opacity: 1;
+  transition: opacity var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+.alias-input::placeholder { color: var(--text-faint); font-weight: 500; }
+.alias-input:focus { box-shadow: 0 0 0 1px var(--phosphor-dim) inset, var(--shadow-glow); }
+.alias-input.closing { opacity: 0; }
 
 .detail-facts {
   display: grid;
@@ -581,6 +648,12 @@
   animation: rise var(--t-base) var(--ease-out) both;
 }
 .notice svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
+
+.notice.closing { animation: sink var(--t-base) var(--ease) both; }
+
+/* Novedades entre escaneos: información, no alarma. */
+.notice.diff { background: var(--surface-3); color: var(--text-soft); box-shadow: 0 0 0 1px var(--line) inset; }
+.notice.diff svg { color: var(--phosphor); }
 
 /* Actualización lista: buena noticia, va en fósforo y no en ámbar. */
 .notice.update {
