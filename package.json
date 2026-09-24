@@ -1,7 +1,7 @@
 {
   "name": "beacon",
   "productName": "Beacon",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Beacon — radar de red. Descubrimiento y escaneo de tu LAN con interfaz visual.",
   "main": "main/main.js",
   "type": "module",
