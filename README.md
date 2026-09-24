@@ -50,8 +50,9 @@ main/
     ping.js          ping en vivo (ping.exe, con knock TCP de respaldo)
     scanner.js       orquesta todo y emite hallazgos a medida que aparecen
 renderer/
-  css/beacon.css     sistema visual (fósforo verde, CRT)
-  css/layout.css     estructura
+  css/beacon.css     sistema visual: vidrio sobre el radar (la física de Opal)
+  css/layout.css     el HUD: el radar de fondo y las hojas que flotan encima
+  css/fonts.css      la mono de los datos (Roboto Mono, empaquetada)
   js/radar.js        el radar
   js/panel.js        lista y detalle
   js/about.js        acerca de: versión, actualizaciones, entorno

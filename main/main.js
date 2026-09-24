@@ -21,7 +21,7 @@ const isDev = !app.isPackaged
 
 /** La base oscura. Electron 40 la usa para teñir el frame que pinta el compositor de
  *  Windows al restaurar; sin esto vuelve el destello blanco. */
-const BASE = '#060a07'
+const BASE = '#070b0a'
 
 let win = null
 /** @type {Scanner|null} */

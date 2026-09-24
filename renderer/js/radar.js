@@ -31,6 +31,17 @@ const RINGS = [
   { r: 432, label: '100 ms+' }
 ]
 
+/**
+ * Más allá del último anillo el radar sigue, por debajo del vidrio del HUD: no
+ * miden nada, son lo que las hojas esmerilan. Se apagan hacia afuera con un
+ * degradé para que el instrumento no termine en un borde.
+ */
+const FAR_RINGS = [560, 700, 860, 1040, 1240, 1460]
+const FAR_R = 1500
+
+/** La escala de rumbo: una marca cada 5°, larga y rotulada cada 30°. */
+const BEARING_R = 468
+
 const NS = 'http://www.w3.org/2000/svg'
 const el = (tag, attrs = {}) => {
   const node = document.createElementNS(NS, tag)
@@ -81,6 +92,49 @@ export class Radar {
   }
 
   #drawGrid () {
+    const fade = el('radialGradient', { id: 'radar-far', gradientUnits: 'userSpaceOnUse', cx: CX, cy: CY, r: FAR_R })
+    fade.append(
+      el('stop', { class: 'far-stop', offset: R_MAX / FAR_R }),
+      el('stop', { class: 'far-stop end', offset: 1 })
+    )
+    this.gridG.appendChild(el('defs')).appendChild(fade)
+
+    for (const r of FAR_RINGS) {
+      this.gridG.appendChild(el('circle', { class: 'ring far', cx: CX, cy: CY, r }))
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4
+      this.gridG.appendChild(el('line', {
+        class: 'spoke far',
+        x1: CX + Math.cos(a) * R_MAX,
+        y1: CY + Math.sin(a) * R_MAX,
+        x2: CX + Math.cos(a) * FAR_R,
+        y2: CY + Math.sin(a) * FAR_R
+      }))
+    }
+
+    for (let deg = 0; deg < 360; deg += 5) {
+      const major = deg % 30 === 0
+      const a = deg * (Math.PI / 180) - Math.PI / 2
+      const inner = BEARING_R - (major ? 14 : 6)
+      this.gridG.appendChild(el('line', {
+        class: major ? 'tick major' : 'tick',
+        x1: CX + Math.cos(a) * inner,
+        y1: CY + Math.sin(a) * inner,
+        x2: CX + Math.cos(a) * BEARING_R,
+        y2: CY + Math.sin(a) * BEARING_R
+      }))
+      if (major) {
+        const t = el('text', {
+          class: 'bearing',
+          x: CX + Math.cos(a) * (BEARING_R + 16),
+          y: CY + Math.sin(a) * (BEARING_R + 16)
+        })
+        t.textContent = String(deg).padStart(3, '0')
+        this.gridG.appendChild(t)
+      }
+    }
+
     for (const { r, label } of RINGS) {
       this.gridG.appendChild(el('circle', { class: 'ring', cx: CX, cy: CY, r }))
       const t = el('text', { class: 'ring-label', x: CX + 6, y: CY - r + 17 })

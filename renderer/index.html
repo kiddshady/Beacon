@@ -5,11 +5,34 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
   <title>Beacon</title>
+  <link rel="stylesheet" href="./css/fonts.css" />
   <link rel="stylesheet" href="./css/beacon.css" />
   <link rel="stylesheet" href="./css/layout.css" />
 </head>
 <body>
   <div class="app">
+
+    <!-- Lo que el vidrio esmerila cuando el radar está quieto: niebla y grano. -->
+    <div class="substrate" aria-hidden="true">
+      <svg><filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#grain)"/></svg>
+    </div>
+
+    <!-- El radar ocupa la ventana entera: todo lo demás flota encima. -->
+    <section class="radar-pane">
+      <div class="radar-wrap" id="radar-wrap">
+        <div class="radar-sweep" id="radar-sweep"></div>
+        <svg class="radar" id="radar" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
+          <g id="radar-grid"></g>
+          <g id="radar-hosts"></g>
+        </svg>
+        <div class="radar-empty" id="radar-empty">
+          <span data-icon="radar"></span>
+          <p>Tu red, sin escanear todavía.</p>
+          <p class="hint">Elegí qué querés saber y tocá <strong>Escanear</strong>.</p>
+        </div>
+      </div>
+      <div class="radar-legend" id="radar-legend"></div>
+    </section>
 
     <header class="titlebar">
       <div class="titlebar-drag">
@@ -25,7 +48,7 @@
       </div>
     </header>
 
-    <nav class="toolbar">
+    <nav class="toolbar sheet">
       <div class="scope-picker scroll-x" id="scope-picker"></div>
       <div class="presets" id="presets"></div>
       <button class="btn watch-btn" id="watch" aria-expanded="false">
@@ -34,49 +57,31 @@
       <button class="btn btn-primary" id="run"><span data-icon="play"></span>Escanear</button>
     </nav>
 
-    <main class="stage">
-      <section class="radar-pane">
-        <div class="radar-wrap" id="radar-wrap">
-          <div class="radar-sweep" id="radar-sweep"></div>
-          <svg class="radar" id="radar" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
-            <g id="radar-grid"></g>
-            <g id="radar-hosts"></g>
-          </svg>
-          <div class="radar-empty" id="radar-empty">
-            <span data-icon="radar"></span>
-            <p>Tu red, sin escanear todavía.</p>
-            <p class="hint">Elegí qué querés saber y tocá <strong>Escanear</strong>.</p>
-          </div>
+    <section class="side sheet">
+      <div class="side-head">
+        <div class="stat" id="stat-found"><b class="mono">0</b><span class="label">encontrados</span></div>
+        <div class="stat" id="stat-ports"><b class="mono">0</b><span class="label">puertos</span></div>
+        <div class="stat" id="stat-time"><b class="mono">—</b><span class="label">tiempo</span></div>
+        <button class="btn-icon" id="history" data-icon="history" data-tip="Historial de esta red"></button>
+        <button class="btn-icon" id="export" data-icon="download" data-tip="Exportar" aria-expanded="false"></button>
+        <button class="btn-icon" id="view-toggle" data-icon="grid" data-tip="Cambiar vista"></button>
+      </div>
+      <div class="progress" id="progress"><i></i></div>
+      <div class="phase mono" id="phase"></div>
+      <div class="notices" id="notices"></div>
+      <div class="filter-wrap" id="filter-wrap">
+        <div class="filter" id="filter">
+          <span class="filter-icon" data-icon="search"></span>
+          <input class="filter-input" id="filter-input" type="text" placeholder="Filtrar por nombre, IP, fabricante o puerto"
+                 spellcheck="false" autocomplete="off">
+          <span class="filter-count mono" id="filter-count"></span>
+          <button class="btn-icon filter-clear" id="filter-clear" data-icon="close" data-tip="Limpiar" tabindex="-1"></button>
         </div>
-        <div class="radar-legend" id="radar-legend"></div>
-      </section>
+      </div>
+      <div class="scroll-y side-body" id="side-body"></div>
+    </section>
 
-      <section class="side">
-        <div class="side-head">
-          <div class="stat" id="stat-found"><b class="mono">0</b><span class="label">encontrados</span></div>
-          <div class="stat" id="stat-ports"><b class="mono">0</b><span class="label">puertos</span></div>
-          <div class="stat" id="stat-time"><b class="mono">—</b><span class="label">tiempo</span></div>
-          <button class="btn-icon" id="history" data-icon="history" data-tip="Historial de esta red"></button>
-          <button class="btn-icon" id="export" data-icon="download" data-tip="Exportar" aria-expanded="false"></button>
-          <button class="btn-icon" id="view-toggle" data-icon="grid" data-tip="Cambiar vista"></button>
-        </div>
-        <div class="progress" id="progress"><i></i></div>
-        <div class="phase mono" id="phase"></div>
-        <div class="notices" id="notices"></div>
-        <div class="filter-wrap" id="filter-wrap">
-          <div class="filter" id="filter">
-            <span class="filter-icon" data-icon="search"></span>
-            <input class="filter-input" id="filter-input" type="text" placeholder="Filtrar por nombre, IP, fabricante o puerto"
-                   spellcheck="false" autocomplete="off">
-            <span class="filter-count mono" id="filter-count"></span>
-            <button class="btn-icon filter-clear" id="filter-clear" data-icon="close" data-tip="Limpiar" tabindex="-1"></button>
-          </div>
-        </div>
-        <div class="scroll-y side-body" id="side-body"></div>
-      </section>
-    </main>
-
-    <footer class="command" id="command">
+    <footer class="command sheet" id="command">
       <div class="command-head">
         <span class="label">Comando nmap equivalente</span>
         <button class="btn-icon" id="copy-cmd" data-icon="copy" data-tip="Copiar al portapapeles"></button>
@@ -88,7 +93,6 @@
   </div>
 
   <div id="tooltip"></div>
-  <div class="crt"></div>
 
   <script type="module" src="./js/app.js"></script>
 </body>

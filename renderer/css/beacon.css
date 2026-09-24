@@ -1,60 +1,122 @@
 /* ══════════════════════════════════════════════════════════════════════════
    Beacon — sistema visual
-   Fósforo verde sobre negro. Un instrumento, no una página web.
+   Vidrio sobre el radar. La física es la de Opal: una sola superficie opaca
+   (el fondo de la ventana), y encima hojas de luz translúcida que esmerilan
+   lo que tienen detrás. Lo que tienen detrás, acá, es el radar mismo: la
+   pantalla entera es el instrumento y la interfaz flota sobre él.
+
+   La otra ley: el cromo no tiene color. Botones, hojas, bordes y textos son
+   grises apenas fríos; el color queda para los DATOS — verde contesta, ámbar
+   se expone, rojo falla. Si algo en pantalla tiene color, quiere decir algo.
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Superficies, de abajo hacia arriba */
-  --bg:         #060a07;
-  --surface-1:  #0a1109;
-  --surface-2:  #0e180f;
-  --surface-3:  #142016;
-  --surface-4:  #1a291d;
+  /* ── El fondo y las hojas ────────────────────────────────────────────────
+     --bg es la ÚNICA superficie opaca. main.js lleva el mismo color en hex
+     como backgroundColor de la ventana: si se desincronizan, vuelve el
+     destello del compositor al restaurar. Las hojas son alfas de blanco:
+     cuanto más alto flota algo, más luz junta. */
+  --bg: #070b0a;
 
-  /* El fósforo */
-  --phosphor:      #3dfb7d;
-  --phosphor-dim:  #2bbd5c;
-  --phosphor-deep: #175f31;
-  --phosphor-glow: rgba(61, 251, 125, 0.35);
-  --phosphor-wash: rgba(61, 251, 125, 0.08);
+  --s1: rgb(255 255 255 / .035);   /* las hojas del HUD */
+  --s2: rgb(255 255 255 / .055);   /* tarjeta, fila, lo que vive en una hoja */
+  --s3: rgb(255 255 255 / .085);   /* hover de tarjeta, popover, tooltip */
+  --s4: rgb(255 255 255 / .11);    /* lo más alto */
 
-  /* Texto, en escalera de énfasis */
-  --text:       #d6f2e0;
-  --text-soft:  #8fb99f;
-  --text-muted: #5c7d68;
-  --text-faint: #3d5546;
+  /* Hundido: campos, la consola, el ícono de un aparato. Pozo de sombra. */
+  --sunken:   rgb(0 0 0 / .28);
+  --sunken-2: rgb(0 0 0 / .42);
 
-  /* Estado */
-  --warn:   #ffc555;
-  --danger: #ff6b5f;
-  --idle:   #4a6553;
+  /* ── El vidrio ───────────────────────────────────────────────────────────
+     Solo en las hojas del HUD y en los overlays: hermanos directos sobre el
+     radar. Lo que vive adentro de una hoja es relleno sin blur — desenfocar
+     lo ya desenfocado cuesta GPU y no se ve. El blur no se anima nunca. */
+  --blur: 22px;
+  --glass:       blur(var(--blur)) saturate(140%);
+  --glass-heavy: blur(calc(var(--blur) * 1.5)) saturate(140%);
 
-  --warn-wash:   rgba(255, 197, 85, 0.12);
-  --danger-wash: rgba(255, 107, 95, 0.12);
+  /* ── Filos ───────────────────────────────────────────────────────────────
+     El canto de arriba junta luz: ese hairline es lo que hace que una hoja se
+     lea como vidrio y no como un gris más. Siempre inset: un border real deja
+     hilacha en las esquinas redondeadas. */
+  --edge-lit: rgb(255 255 255 / .10);
+  --line:     rgb(255 255 255 / .06);
+  --line-2:   rgb(255 255 255 / .10);
+  --line-3:   rgb(255 255 255 / .16);
+  --sheet:    inset 0 1px 0 var(--edge-lit), inset 0 0 0 1px var(--line);
 
-  /* Hairlines: contornos finos, nunca para separar planos */
-  --line:        rgba(61, 251, 125, 0.10);
-  --line-strong: rgba(61, 251, 125, 0.20);
+  /* ── Texto, en escalera de énfasis. Nunca blanco puro. ─────────────────── */
+  --text:   oklch(93.5% .006 175);
+  --text-2: oklch(74% .012 175);
+  --text-3: oklch(56% .014 175);
+  --text-4: oklch(42% .014 175);
 
-  /* Elevación */
-  --shadow-1: 0 1px 3px rgba(0, 0, 0, .5), 0 0 0 1px rgba(61, 251, 125, .05) inset;
-  --shadow-2: 0 4px 16px rgba(0, 0, 0, .55), 0 0 0 1px rgba(61, 251, 125, .07) inset;
-  --shadow-3: 0 12px 40px rgba(0, 0, 0, .65), 0 0 0 1px rgba(61, 251, 125, .09) inset;
-  --shadow-glow: 0 0 20px var(--phosphor-glow);
+  /* ── Acento: luz. Vive en cantos, anillos de foco y puntos; no rellena. ── */
+  --accent-rgb: 226 238 233;
+  --accent: rgb(var(--accent-rgb));
+  --wash-1: rgb(var(--accent-rgb) / .05);
+  --wash-2: rgb(var(--accent-rgb) / .09);
+  --wash-3: rgb(var(--accent-rgb) / .15);
+  --ring:   rgb(var(--accent-rgb) / .55);
 
-  /* Movimiento */
-  --ease:      cubic-bezier(.4, 0, .2, 1);
-  --ease-out:  cubic-bezier(.16, 1, .3, 1);
-  --t-fast:    .13s;
-  --t-base:    .22s;
-  --t-slow:    .34s;
+  /* El énfasis se talla, no se pinta: lo primario es lo más PROFUNDO de la
+     pantalla, con el canto más vivo. Obsidiana, no un botón de color. */
+  --deep:   rgb(0 0 0 / .38);
+  --deep-2: rgb(0 0 0 / .52);
+  --rim:    rgb(var(--accent-rgb) / .34);
+  --rim-2:  rgb(var(--accent-rgb) / .58);
 
-  --r-sm: 5px;
+  /* ── La señal: los colores de los datos ──────────────────────────────────
+     El verde es el eco de un aparato que contestó. No decora nada más. */
+  --sig-rgb: 70 228 146;
+  --sig:      rgb(var(--sig-rgb));
+  --sig-glow: rgb(var(--sig-rgb) / .38);
+  --sig-wash: rgb(var(--sig-rgb) / .10);
+  --sig-line: rgb(var(--sig-rgb) / .22);
+
+  --warn-rgb: 245 190 84;
+  --warn:      rgb(var(--warn-rgb));
+  --warn-glow: rgb(var(--warn-rgb) / .45);
+  --warn-wash: rgb(var(--warn-rgb) / .11);
+  --warn-line: rgb(var(--warn-rgb) / .24);
+
+  /* Rojo: reservado para el fallo. Si aparece decorando, deja de significar. */
+  --danger-rgb: 222 108 112;
+  --danger:      rgb(var(--danger-rgb));
+  --danger-dim:  oklch(48% .11 18);
+  --danger-wash: rgb(var(--danger-rgb) / .12);
+  --danger-line: rgb(var(--danger-rgb) / .40);
+
+  /* ── Elevación: sombras largas y suaves. Una hoja flota lejos del radar. ── */
+  --e1: 0 1px 2px rgb(0 0 0 / .30);
+  --e2: 0 2px 8px rgb(0 0 0 / .32), 0 12px 34px rgb(0 0 0 / .38);
+  --e3: 0 4px 12px rgb(0 0 0 / .36), 0 20px 48px rgb(0 0 0 / .44);
+  --e4: 0 8px 24px rgb(0 0 0 / .44), 0 32px 80px rgb(0 0 0 / .56);
+
+  /* ── Movimiento: sale rápido, frena largo. Nada rebota. ───────────────── */
+  --ease:      cubic-bezier(.16, 1, .3, 1);
+  --ease-soft: cubic-bezier(.33, 1, .68, 1);
+  --ease-both: cubic-bezier(.65, 0, .35, 1);
+  --ease-in:   cubic-bezier(.55, 0, 1, .45);
+  --t-fast: .12s;
+  --t-base: .2s;
+  --t-slow: .32s;
+
+  --r-sm: 6px;
   --r:    8px;
   --r-lg: 12px;
+  --r-xl: 16px;
 
-  --font: 'Segoe UI Variable Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --mono: 'Cascadia Mono', 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Roboto Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+
+  /* Tracking: negativo en lo grande, generoso en las versalitas. */
+  --track-tight: -.014em;
+  --track-caps:  .13em;
+
+  /* El HUD: cuánto aire deja ver el radar entre hoja y hoja. */
+  --gap: 12px;
+  --side-w: clamp(376px, 31vw, 440px);
 
   --fade: 28px;
 }
@@ -70,7 +132,7 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -85,64 +147,56 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 /* ── Controles propios: nada de Chromium crudo ─────────────────────────── */
 
 ::selection {
-  background: rgba(61, 251, 125, .26);
-  color: #eafff1;
+  background: rgb(var(--accent-rgb) / .18);
+  color: var(--text);
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(61, 251, 125, .12);
+  background: rgb(255 255 255 / .07);
   border-radius: 99px;
   border: 3px solid transparent;
   background-clip: content-box;
-  transition: background var(--t-base) var(--ease);
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(61, 251, 125, .3); background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / .16); background-clip: content-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
 :focus { outline: none; }
 :focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--phosphor-dim);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / .5), 0 0 0 3px var(--ring);
   border-radius: var(--r-sm);
-  transition: box-shadow var(--t-fast) var(--ease);
+  transition: box-shadow var(--t-fast) var(--ease-soft);
 }
 
-/* ── El vidrio del CRT ─────────────────────────────────────────────────── */
-
-.crt {
-  position: fixed;
+/* ── El sustrato ───────────────────────────────────────────────────────────
+   Lo que el vidrio tiene para esmerilar cuando el radar está quieto: una
+   niebla de luz sin tinte, un resplandor verde muy bajo donde vive el radar,
+   y grano — sin grano el desenfoque queda plástico; con él parece vidrio.
+   Es estático a propósito: animarlo obligaría a recomponer cada hoja en cada
+   frame. El grano es un SVG en línea porque la CSP no deja cargar data: URIs. */
+.substrate {
+  position: absolute;
   inset: 0;
+  z-index: -1;
   pointer-events: none;
-  z-index: 9000;
+  background:
+    radial-gradient(48vw 48vw at 8% 0%,   rgb(255 255 255 / .05), transparent 70%),
+    radial-gradient(40vw 40vw at 96% 30%, rgb(255 255 255 / .035), transparent 70%),
+    radial-gradient(44vw 44vw at 40% 112%, rgb(255 255 255 / .03), transparent 70%);
 }
+.substrate svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .05; }
 
-/* Líneas de barrido: apenas perceptibles, es textura y no un efecto. */
-.crt::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0) 0px,
-    rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, .16) 3px,
-    rgba(0, 0, 0, .16) 4px
-  );
-  opacity: .45;
-}
-
-/* Viñeteado: el tubo se apaga en los bordes. */
-.crt::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 130% 110% at 50% 45%,
-    transparent 55%,
-    rgba(0, 0, 0, .45) 100%
-  );
+/* ── Hoja de vidrio ────────────────────────────────────────────────────────
+   La receta de todo lo que flota sobre el radar: relleno de luz, blur, canto
+   iluminado arriba y una sombra larga que la separa del instrumento. */
+.sheet {
+  position: relative;
+  border-radius: var(--r-xl);
+  background: var(--s1);
+  backdrop-filter: var(--glass-heavy);
+  box-shadow: var(--sheet), var(--e3);
 }
 
 /* ── Tooltip propio (nunca title=) ─────────────────────────────────────── */
@@ -152,20 +206,21 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
   z-index: 9500;
   padding: 6px 10px;
   max-width: 320px;
-  background: var(--surface-4);
+  background: rgb(22 27 26 / .78);
+  backdrop-filter: var(--glass);
   color: var(--text);
   font-size: 12px;
   line-height: 1.45;
   border-radius: var(--r-sm);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--sheet), var(--e2);
   pointer-events: none;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  transition: opacity var(--t-fast) var(--ease-soft), transform var(--t-base) var(--ease);
 }
 #tooltip.on { opacity: 1; transform: translateY(0); }
 
-/* ── Fades de scroll: donde el contenido se corta, se esfuma ───────────── */
+/* ── Fades de scroll: donde el contenido se corta al aire, se esfuma ───── */
 
 .scroll-y {
   overflow-y: auto;
@@ -215,66 +270,81 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 }
 
 .label {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: .1em;
+  letter-spacing: var(--track-caps);
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-3);
 }
-
-.glow { text-shadow: 0 0 12px var(--phosphor-glow); }
 
 /* ── Botones ───────────────────────────────────────────────────────────── */
 
+/* Secundario: una hoja chica — relleno de luz con el canto iluminado. */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  height: 32px;
+  padding: 0 13px;
   border-radius: var(--r);
-  background: var(--surface-2);
-  color: var(--text-soft);
-  box-shadow: var(--shadow-1);
+  background: var(--s2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: var(--sheet), var(--e1);
   transition:
-    background var(--t-base) var(--ease),
-    color var(--t-base) var(--ease),
+    background var(--t-fast) var(--ease-soft),
+    color var(--t-fast) var(--ease-soft),
     box-shadow var(--t-base) var(--ease),
-    transform var(--t-fast) var(--ease);
+    transform var(--t-fast) var(--ease-soft);
 }
-.btn:hover { background: var(--surface-3); color: var(--text); }
-.btn:active { transform: scale(.97); }
+.btn:hover {
+  background: var(--s3);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 var(--edge-lit), inset 0 0 0 1px var(--line-2), var(--e2);
+}
+.btn:active { transform: scale(.975); }
+.btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 .btn[disabled] { opacity: .4; pointer-events: none; }
 
 .btn-small {
-  padding: 5px 10px;
-  font-size: 12px;
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11.5px;
   border-radius: var(--r-sm);
-  color: var(--phosphor);
-  box-shadow: var(--shadow-1), 0 0 0 1px var(--line-strong) inset;
+  color: var(--text);
 }
-.btn-small:hover { color: var(--phosphor); background: rgba(61, 251, 125, .14); }
 
+/* Primario: obsidiana con el canto encendido. Uno solo por pantalla. */
 .btn-primary {
-  background: var(--phosphor-wash);
-  color: var(--phosphor);
-  box-shadow: var(--shadow-1), 0 0 0 1px var(--line-strong) inset;
+  background: var(--deep);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), inset 0 0 0 1px var(--rim), var(--e2);
 }
 .btn-primary:hover {
-  background: rgba(61, 251, 125, .16);
-  box-shadow: var(--shadow-2), var(--shadow-glow);
+  background: var(--deep-2);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .22), inset 0 0 0 1px var(--rim-2),
+              0 0 18px rgb(var(--accent-rgb) / .08), var(--e2);
 }
 
+/* Ícono: sin superficie hasta que lo tocás. */
 .btn-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
   width: 30px;
   height: 30px;
-  justify-content: center;
   padding: 0;
   border-radius: var(--r-sm);
   background: transparent;
   box-shadow: none;
-  color: var(--text-muted);
+  color: var(--text-3);
 }
-.btn-icon:hover { background: var(--surface-3); color: var(--text); }
+.btn-icon:hover { background: var(--wash-1); color: var(--text); box-shadow: none; }
+.btn-icon:active { transform: scale(.92); background: var(--wash-2); }
+.btn-icon svg { width: 16px; height: 16px; }
 
 /* ── Animaciones compartidas ───────────────────────────────────────────── */
 
@@ -316,7 +386,7 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
   to   { opacity: 0; transform: translateY(6px) scale(.98); }
 }
 
-.rise { animation: rise var(--t-slow) var(--ease-out) both; }
+.rise { animation: rise var(--t-slow) var(--ease) both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
