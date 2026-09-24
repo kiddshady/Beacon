@@ -75,7 +75,9 @@ function radiusFor (host) {
 
 export class Radar {
   constructor ({ svg, sweep, empty, onSelect, onHover }) {
+    this.svg = svg
     this.gridG = svg.querySelector('#radar-grid')
+    this.leaderG = svg.querySelector('#radar-leader')
     this.hostsG = svg.querySelector('#radar-hosts')
     this.sweepEl = sweep
     this.emptyEl = empty
@@ -340,7 +342,63 @@ export class Radar {
     }
   }
 
+  /** Dónde está el punto de un host en la pantalla, o null si no se ve. */
+  pointOf (ip) {
+    const node = this.nodes.get(ip)
+    if (!node) return null
+    const r = this.svg.getBoundingClientRect()
+    const k = r.width / 1000
+    return { x: r.left + node.x * k, y: r.top + node.y * k }
+  }
+
+  /**
+   * La línea que une un punto con la hoja del inspector: sale del punto en
+   * horizontal y en el último tramo dobla hacia el canto, como la llamada de
+   * un plano. `edge` viene en píxeles de pantalla: la x del canto y el alto
+   * útil de la hoja. Sin ip, la línea se va.
+   */
+  setLeader (ip, edge) {
+    const node = ip && this.nodes.get(ip)
+    if (!node || !edge) {
+      for (const g of this.leaderG.children) {
+        if (g.classList.contains('closing')) continue
+        g.classList.add('closing')
+        setTimeout(() => g.remove(), 260)
+      }
+      return
+    }
+
+    const r = this.svg.getBoundingClientRect()
+    const k = r.width / 1000
+    const toX = (px) => (px - r.left) / k
+    const toY = (px) => (px - r.top) / k
+
+    const ex = toX(edge.x)
+    const dir = ex > node.x ? 1 : -1
+    const ey = Math.min(Math.max(node.y, toY(edge.top)), toY(edge.bottom))
+    const start = node.x + dir * (node.host.isGateway ? 22 : 18)
+    // El codo, a una distancia fija del canto; si el punto está más cerca que
+    // eso, la línea va derecho.
+    const elbow = ex - dir * 34
+    const pts = Math.abs(ey - node.y) < 1 || (elbow - start) * dir < 0
+      ? [[start, node.y], [ex, ey]]
+      : [[start, node.y], [elbow, node.y], [ex, ey]]
+    const d = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
+
+    let g = [...this.leaderG.children].find(c => !c.classList.contains('closing'))
+    if (!g) {
+      g = el('g', { class: 'leader' })
+      g.append(el('path', { pathLength: 1 }), el('circle', { r: 3 }))
+      this.leaderG.appendChild(g)
+    }
+    g.querySelector('path').setAttribute('d', d)
+    const end = g.querySelector('circle')
+    end.setAttribute('cx', ex.toFixed(1))
+    end.setAttribute('cy', ey.toFixed(1))
+  }
+
   clear () {
+    this.setLeader(null)
     this.hostsG.replaceChildren()
     this.nodes.clear()
     this.pending.length = 0

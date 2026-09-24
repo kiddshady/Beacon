@@ -23,6 +23,7 @@
         <div class="radar-sweep" id="radar-sweep"></div>
         <svg class="radar" id="radar" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet">
           <g id="radar-grid"></g>
+          <g id="radar-leader"></g>
           <g id="radar-hosts"></g>
         </svg>
         <div class="radar-empty" id="radar-empty">
@@ -33,6 +34,12 @@
       </div>
       <div class="radar-legend" id="radar-legend"></div>
     </section>
+
+    <!-- El detalle de un aparato: flota sobre el radar, del lado contrario a su punto. -->
+    <aside class="inspector sheet" id="inspector" hidden>
+      <button class="btn-icon inspector-close" id="inspector-close" data-icon="close" data-tip="Cerrar (Esc)"></button>
+      <div class="scroll-y inspector-body" id="inspector-body"></div>
+    </aside>
 
     <header class="titlebar">
       <div class="titlebar-drag">

@@ -23,6 +23,8 @@
 
 /* Todo lo que flota va por encima del radar, que se desborda por debajo. */
 .app > .sheet { z-index: 2; }
+/* El inspector, cuando baja, pasa por encima de la consola, no por debajo. */
+.app > .inspector { z-index: 3; }
 
 /* ── Barra de título ───────────────────────────────────────────────────────
    Sin hoja: la marca y los controles apoyados directo sobre el radar. La
@@ -520,13 +522,17 @@
 }
 .phase.done::after { display: none; }
 
-/* Abajo la lista muere contra el canto de la hoja, no al aire: ese lado corta
-   limpio. El esfumado queda solo arriba, contra el filtro. */
+/* Abajo la lista (y el inspector) mueren contra el canto de la hoja, no al
+   aire: ese lado corta limpio. El esfumado queda solo arriba. */
 .side-body { padding-inline: 12px; min-height: 0; }
 .side-body,
-.side-body[data-at='bottom'] { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade)); }
+.side-body[data-at='bottom'],
+.inspector-body,
+.inspector-body[data-at='bottom'] { mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade)); }
 .side-body[data-at='top'],
-.side-body[data-at='both'] { mask-image: none; }
+.side-body[data-at='both'],
+.inspector-body[data-at='top'],
+.inspector-body[data-at='both'] { mask-image: none; }
 
 /* ── Filtro ────────────────────────────────────────────────────────────── */
 
@@ -703,6 +709,72 @@
 .pill.phosphor { background: var(--sig-wash); color: var(--sig); }
 .pill.new { background: var(--sig); color: var(--bg); font-family: var(--font); font-weight: 600; letter-spacing: .04em; }
 
+/* ── Inspector ─────────────────────────────────────────────────────────────
+   El detalle de un aparato, en una hoja que flota sobre el radar del lado
+   contrario a su punto. Vive en la misma celda del grid que el radar, pero
+   absoluta: no le quita lugar, lo tapa, y lo tapado se esmerila. Entra
+   deslizándose desde el lado del punto; el blur ya viene puesto. */
+
+.inspector {
+  /* Las dos puntas explícitas: en un hijo absoluto del grid, un final `auto`
+     no es "una pista", es el borde del contenedor — y la hoja terminaba
+     pegada al costado de la ventana, debajo de la lista. */
+  grid-row: 3 / 4;
+  grid-column: 1 / 2;
+  position: absolute;
+  top: var(--gap);
+  width: clamp(300px, 42%, 360px);
+  /* En ventanas bajas la celda del radar no alcanza para un detalle: la hoja
+     puede bajar hasta 440px aunque pase por encima de la consola. En una
+     ventana normal no llega nunca a tocarla. */
+  max-height: max(calc(100% - var(--gap) * 2), 440px);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateX(var(--from)) scale(.985);
+  pointer-events: none;
+  transition: opacity var(--t-base) var(--ease-soft), transform var(--t-slow) var(--ease);
+}
+.inspector[hidden] { display: none; }
+.inspector[data-side='right'] { right: var(--gap); --from: -14px; transform-origin: left center; }
+.inspector[data-side='left']  { left: var(--gap);  --from: 14px;  transform-origin: right center; }
+.inspector.on { opacity: 1; transform: none; pointer-events: auto; }
+
+.inspector-close {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  z-index: 1;
+}
+.inspector-close svg { width: 13px; height: 13px; }
+
+.inspector-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  --fade: 20px;
+  padding: var(--fade) 14px 14px;
+}
+.inspector-body .detail-head { padding-right: 34px; }
+
+/* La llamada: del punto al canto de la hoja. Es cromo, no dato — va en luz. */
+.leader { transition: opacity var(--t-base) var(--ease-soft); }
+.leader.closing { opacity: 0; }
+.leader path {
+  fill: none;
+  stroke: rgb(var(--accent-rgb) / .34);
+  stroke-width: 1.6;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw var(--t-slow) var(--ease) .06s forwards;
+}
+.leader circle {
+  fill: var(--accent);
+  opacity: 0;
+  animation: rise-in var(--t-base) var(--ease-soft) .2s forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes rise-in { to { opacity: .8; } }
+
 /* ── Detalle ───────────────────────────────────────────────────────────── */
 
 .detail { animation: rise var(--t-slow) var(--ease) both; }
@@ -867,20 +939,6 @@
   color: var(--text-3);
   animation: rise var(--t-slow) var(--ease) both;
 }
-
-.back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-  padding: 5px 9px;
-  border-radius: var(--r-sm);
-  font-size: 12px;
-  color: var(--text-3);
-  transition: background var(--t-fast) var(--ease-soft), color var(--t-fast) var(--ease-soft);
-}
-.back-btn:hover { background: var(--wash-1); color: var(--text); }
-.back-btn svg { width: 12px; height: 12px; }
 
 /* ── Consola ───────────────────────────────────────────────────────────────
    El comando nmap equivalente, en una hoja abajo del radar. La línea es un

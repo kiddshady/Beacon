@@ -138,6 +138,17 @@ export function renderList (container, hosts, { selected, onSelect, onHover, mis
   container.replaceChildren(...cards)
 }
 
+/**
+ * Marca la tarjeta del aparato abierto en el inspector (o ninguna) sin volver
+ * a dibujar la lista: redibujarla haría entrar de nuevo todas las tarjetas.
+ */
+export function markCard (container, ip) {
+  for (const card of container.querySelectorAll('.host-card[data-ip]')) {
+    card.setAttribute('aria-pressed', String(card.dataset.ip === ip))
+  }
+  if (ip) container.querySelector(`.host-card[data-ip="${CSS.escape(ip)}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
+
 /** Marca la tarjeta cuyo punto está bajo el mouse en el radar (o ninguna). */
 export function hotCard (container, ip) {
   for (const card of container.querySelectorAll('.host-card.hot')) card.classList.remove('hot')
@@ -189,7 +200,7 @@ function historyLine (host) {
   return line ? line[0].toUpperCase() + line.slice(1) + '.' : null
 }
 
-export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen, onCopy, onDeepen, deepening = false } = {}) {
+export function renderDetail (container, host, { onAlias, onWake, onOpen, onCopy, onDeepen, deepening = false } = {}) {
   const kind = host.kind || 'unknown'
   const ports = [...(host.ports || [])].sort((a, b) => {
     const rank = { warn: 0, watch: 1, ok: 2 }
@@ -202,8 +213,6 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
   const wrap = document.createElement('div')
   wrap.className = 'detail'
   wrap.innerHTML = `
-    <button class="back-btn">${icon('back')}Volver a la lista</button>
-
     <div class="detail-head">
       <span class="host-icon">${icon(KIND_ICON[kind])}</span>
       <span class="detail-title">
@@ -277,7 +286,6 @@ export function renderDetail (container, host, { onBack, onAlias, onWake, onOpen
     }))
   }
 
-  wrap.querySelector('.back-btn').addEventListener('click', () => onBack?.())
   wrap.querySelector('.edit')?.addEventListener('click', () => editAlias(wrap, host, onAlias))
   wrap.querySelector('[data-open]')?.addEventListener('click', () => onOpen?.(panel))
   wrap.querySelector('[data-deepen]')?.addEventListener('click', () => onDeepen?.(host))
