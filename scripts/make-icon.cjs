@@ -1,9 +1,9 @@
 /**
  * Genera build/icon.png (1024×1024) y build/tray.ico desde la marca de la app.
  *
- * Es el MISMO dibujo que `beacon` en renderer/js/icons.js: un punto, cuatro
- * marcas cardinales y dos anillos, en fósforo sobre la placa oscura. Si cambiás
- * la marca allá, corré esto de nuevo:
+ * Es el mismo dibujo que `beacon` en renderer/js/icons.js (la marca de la
+ * titlebar): el radar con su barrido. Si cambiás la marca allá, cambiala acá
+ * también y corré esto de nuevo:
  *
  *   npm run icon
  *
@@ -24,39 +24,85 @@ const OUT = path.join(__dirname, '..', 'build', 'icon.png')
 const TRAY_SIZES = [16, 20, 24, 32]
 const TRAY_OUT = path.join(__dirname, '..', 'build', 'tray.ico')
 
+/* ── El dibujo ─────────────────────────────────────────────────────────────
+   Un radar en su placa de obsidiana: anillos en luz, el barrido verde con su
+   filo y su estela, y un eco que el filo acaba de tocar. Es la misma ley que la
+   app: el cromo sin color, el verde solo para lo que contesta. Todo en un
+   viewBox de 100 con el centro en 50,50; los ángulos son de rumbo (0 = arriba,
+   sentido horario). */
+
+const SIG = '70,228,146'
+const EDGE = 38        // hacia dónde apunta el filo del barrido
+const BLIP = [23, 14]  // el eco: radio y rumbo — adentro de la estela, recién barrido
+
+const rad = (deg) => (deg - 90) * Math.PI / 180
+const pt = (r, deg) => [50 + Math.cos(rad(deg)) * r, 50 + Math.sin(rad(deg)) * r]
+const f = (n) => n.toFixed(2)
+
 /**
- * La marca sobre su placa, a un tamaño dado. En chico el dibujo ocupa más de la
- * placa, el trazo engorda y los anillos suben de opacidad: lo que en grande es
- * sutileza, a 16 px es invisible.
+ * La marca sobre su placa. En chico (menos de 64 px) el dibujo se simplifica:
+ * un solo anillo gordo, la estela en pocos gajos y sin resplandores — lo que en
+ * grande es sutileza, a 16 px es barro.
  */
+function mark (small) {
+  const R = small ? 40 : 36
+  const span = small ? 60 : 84
+  const peak = small ? .5 : .46
+  const [ex, ey] = pt(R, EDGE)
+  // En chico el eco se aleja del filo: a 16 px, pegados, se funden en una manchita.
+  const [bx, by] = small ? pt(22, -18) : pt(...BLIP)
+
+  const rings = small
+    ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="5"/>`
+    : `<circle cx="50" cy="50" r="12" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width=".8"/>
+       <circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width=".8"/>
+       <circle cx="50" cy="50" r="${R}" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.1"/>
+       <path d="M50 ${50 - R - 3}v5M50 ${50 + R - 2}v5M${50 - R - 3} 50h5M${50 + R - 2} 50h5"
+             stroke="#fff" stroke-opacity=".3" stroke-width="1.1" stroke-linecap="round"/>`
+
+  // La estela es un conic-gradient de CSS y no gajos de SVG: los gajos dejan
+  // costuras donde se tocan. Va entre la placa y el dibujo, recortada al anillo.
+  const tail = `<div style="position:absolute; left:${50 - R}%; top:${50 - R}%; width:${2 * R}%; height:${2 * R}%;
+    border-radius:50%; background:conic-gradient(from ${EDGE - span}deg,
+      rgba(${SIG}, 0) 0deg, rgba(${SIG}, ${f(peak * .22)}) ${f(span * .5)}deg,
+      rgba(${SIG}, ${f(peak)}) ${span}deg, transparent ${span}deg)"></div>`
+
+  return `<div style="position:relative; width:100%; height:100%">
+  <svg style="position:absolute; inset:0" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="-10%" r="120%">
+      <stop offset="0" stop-color="#1b2422"/><stop offset=".55" stop-color="#0b100f"/><stop offset="1" stop-color="#060908"/>
+    </radialGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".35" stop-color="#fff" stop-opacity=".05"/><stop offset="1" stop-color="#fff" stop-opacity=".03"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="98" height="98" rx="22" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="97" height="97" rx="21.5" fill="none" stroke="url(#edge)" stroke-width="${small ? 2 : 1}"/>
+  </svg>
+  ${tail}
+  <svg style="position:absolute; inset:0" viewBox="0 0 100 100">
+  <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+  ${rings}
+  <line x1="50" y1="50" x2="${f(ex)}" y2="${f(ey)}" stroke="rgb(${SIG})" stroke-width="${small ? 5 : 1.6}" stroke-linecap="round"/>
+  ${small ? '' : `<line x1="50" y1="50" x2="${f(ex)}" y2="${f(ey)}" stroke="rgb(${SIG})" stroke-width="3" filter="url(#glow)" opacity=".8"/>
+  <circle cx="${f(bx)}" cy="${f(by)}" r="7" fill="none" stroke="rgb(${SIG})" stroke-opacity=".35" stroke-width="1"/>
+  <circle cx="${f(bx)}" cy="${f(by)}" r="4.5" fill="rgb(${SIG})" filter="url(#glow)" opacity=".9"/>`}
+  <circle cx="${f(bx)}" cy="${f(by)}" r="${small ? 6.5 : 3.6}" fill="rgb(${SIG})"/>
+  <circle cx="50" cy="50" r="${small ? 5.5 : 2.6}" fill="#eef7f3"/>
+  </svg>
+</div>`
+}
+
 function plate (side) {
-  const small = side < 64
-  const glyph = Math.round(side * (small ? .84 : .66))
-  const glow = small ? 'none' : `drop-shadow(0 0 ${Math.round(side * 0.02)}px rgba(61, 251, 125, .45))`
   return `<!doctype html>
 <meta charset="utf-8">
 <style>
   html, body { margin: 0; width: ${side}px; height: ${side}px; background: transparent; overflow: hidden; }
-  .plate {
-    width: ${side}px; height: ${side}px;
-    box-sizing: border-box;
-    background: #060a07;
-    border-radius: ${Math.round(side * 0.18)}px;
-    display: grid; place-items: center;
-  }
-  svg { width: ${glyph}px; height: ${glyph}px;
-        stroke: #3dfb7d; color: #3dfb7d; fill: none;
-        stroke-width: ${small ? 2.1 : 1.6}; stroke-linecap: round; stroke-linejoin: round;
-        filter: ${glow}; }
+  body > div { width: ${side}px; height: ${side}px; }
+  svg { display: block; width: 100%; height: 100%; }
 </style>
-<div class="plate">
-  <svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="${small ? 2.6 : 2.2}" fill="currentColor" stroke="none"/>
-    <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/>
-    <circle cx="12" cy="12" r="6.5" opacity="${small ? .8 : .55}"/>
-    <circle cx="12" cy="12" r="10" opacity="${small ? .5 : .28}"/>
-  </svg>
-</div>`
+<div>${mark(side < 64)}</div>`
 }
 
 /**

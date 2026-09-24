@@ -50,8 +50,11 @@
   -webkit-app-region: drag;
 }
 
-.brand { color: var(--sig); display: flex; filter: drop-shadow(0 0 6px var(--sig-glow)); }
-.brand svg { width: 15px; height: 15px; }
+.brand { color: var(--sig); display: flex; filter: drop-shadow(0 0 5px rgb(var(--sig-rgb) / .3)); }
+.brand svg { width: 16px; height: 16px; }
+.brand .mk-ring { stroke: var(--text-2); opacity: .6; }
+.brand .mk-ring.faint { opacity: .3; }
+.brand .mk-center { fill: var(--text); }
 
 .brand-name {
   font-size: 11px;

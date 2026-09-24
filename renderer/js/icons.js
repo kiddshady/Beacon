@@ -12,11 +12,16 @@ const S = (body, opts = {}) =>
 export const ICONS = {
   /* ── Marca y chrome ──────────────────────────────────────────────────── */
 
+  // La marca: el mismo radar que el ícono de la app (scripts/make-icon.cjs),
+  // en su versión chica. Los anillos y el centro los tiñe .brand en luz; el
+  // barrido y el eco quedan en currentColor, el verde de la señal.
   beacon: S(`
-    <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
-    <path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/>
-    <circle cx="12" cy="12" r="6.5" opacity=".55"/>
-    <circle cx="12" cy="12" r="10" opacity=".28"/>`),
+    <path d="M12 12L8.25 2.73A10 10 0 0 1 18.16 4.12Z" fill="currentColor" stroke="none" opacity=".18"/>
+    <circle class="mk-ring" cx="12" cy="12" r="10"/>
+    <circle class="mk-ring faint" cx="12" cy="12" r="5.5"/>
+    <path d="M12 12L18.16 4.12"/>
+    <circle cx="10.15" cy="6.29" r="1.6" fill="currentColor" stroke="none"/>
+    <circle class="mk-center" cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>`),
 
   radar: S(`
     <circle cx="12" cy="12" r="9.5" opacity=".35"/>
