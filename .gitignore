@@ -9,3 +9,6 @@ release/
 !build/icon.png
 Thumbs.db
 .DS_Store
+
+# Datos que los plugins de Claude Code dejan en el proyecto (no son de Beacon)
+.claude/data/
