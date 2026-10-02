@@ -229,6 +229,10 @@ export function createWatcher ({ startScan, isScanning, showWindow, notify, list
   async function init (listener) {
     onState = listener
     cfg = (await getSettings()).watch
+    // El registro de Windows se alinea con los ajustes en cada arranque, no solo
+    // al tocar el interruptor: una entrada vieja con la vigilancia apagada abría
+    // la ventana en cada inicio de sesión (el --hidden no vale sin vigilancia).
+    applyAutostart()
     if (cfg.enabled) {
       await resolveScope()
       ensureTray()
