@@ -25,6 +25,9 @@ const HISTORY_MAX = 40
 
 const store = new Store(join(app.getPath('userData'), 'memory.json'), EMPTY)
 
+/** Se carga al arrancar: si el archivo está dañado, la interfaz lo avisa de entrada (store.js). */
+export const warm = () => store.load().then(() => true, () => false)
+
 export function deviceKey (host, netKey) {
   if (host.mac) return `mac:${host.mac.toUpperCase()}`
   return `ip:${netKey}:${host.ip}`

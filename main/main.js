@@ -14,6 +14,8 @@ import { createPinger } from './net/ping.js'
 import * as updater from './updater.js'
 import * as memory from './memory.js'
 import { createWatcher } from './watch.js'
+import { keepAlive } from './recover.js'
+import { flushAll, listAsides } from './store.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DEV_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5273'
@@ -65,6 +67,9 @@ function createWindow ({ hidden = false } = {}) {
 
   if (isDev) win.loadURL(DEV_URL)
   else win.loadFile(join(__dirname, '..', 'dist', 'index.html'))
+  // Si se cae el proceso de la interfaz, la ventana se recarga sola (recover.js).
+  // El ping lo vuelve a pedir la interfaz nueva cuando abra un detalle.
+  keepAlive(win, { onGone: () => pinger.stop() })
 
   // Los links externos no secuestran la ventana.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -81,6 +86,16 @@ function createWindow ({ hidden = false } = {}) {
   win.on('hide', () => pinger.stop())
   win.on('minimize', () => pinger.stop())
   win.on('closed', () => { win = null; pinger.stop() })
+  // Maximizar también se hace con doble click en la barra o Win+↑: el botón
+  // se entera por acá, no por su propio click.
+  win.on('maximize', () => send('win:maximized', true))
+  win.on('unmaximize', () => send('win:maximized', false))
+  /* Apagar, reiniciar o cerrar la sesión de Windows no pasa por la cruz:
+     Windows avisa y después puede cortar en cualquier momento. Lo que la
+     memoria de la red tenga a mitad de camino va al disco acá, sin soltar el
+     hilo (store.js). */
+  win.on('query-session-end', flushAll)
+  win.on('session-end', flushAll)
 
   if (process.env.BEACON_CAPTURE) captureAndExit(win)
 }
@@ -168,7 +183,8 @@ app.whenReady().then(async () => {
 
   updater.registerIPC()
   // `--hidden` lo pone el arranque con Windows; solo vale si la vigilancia sigue activa.
-  const hidden = process.argv.includes('--hidden') && !!(await getSettings()).watch?.enabled
+  // Si los ajustes están tomados (store.js, trampa 1), se muestra: mejor visible que perdida.
+  const hidden = process.argv.includes('--hidden') && !!(await getSettings().catch(() => null))?.watch?.enabled
   createWindow({ hidden })
   // En dev no busca nada; empaquetada, consulta GitHub unos segundos después de abrir.
   updater.start(() => win)
@@ -179,6 +195,8 @@ app.whenReady().then(async () => {
 })
 
 app.on('before-quit', () => { app.quitting = true })
+// Al salir, la app se va antes de que llegue una escritura asíncrona.
+app.on('will-quit', flushAll)
 
 app.on('window-all-closed', () => {
   scanner?.stop()
@@ -260,7 +278,7 @@ async function allScopes () {
   return scopes
 }
 
-ipcMain.handle('app:bootstrap', async () => ({
+ipcMain.handle('app:bootstrap', async () => (await memory.warm(), {
   version: app.getVersion(),
   versions: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node },
   scopes: await allScopes(),
@@ -344,7 +362,15 @@ ipcMain.handle('watch:now', () => watcher.scanNow())
 
 ipcMain.handle('scan:stop', () => { scanner?.stop(); return true })
 
-ipcMain.handle('clipboard:write', (_e, text) => { clipboard.writeText(String(text)); return true })
+/* Desde Electron 44 el portapapeles del proceso principal es asíncrono, como
+   el de la web. Leer es para el «Pegar» del menú de los campos: desde la
+   página pide un permiso. Con tope: un portapapeles gigante no tiene por qué
+   cruzar entero. */
+ipcMain.handle('clipboard:write', async (_e, text) => { await clipboard.writeText(String(text)); return true })
+ipcMain.handle('clipboard:read', async () => String((await clipboard.readText()) ?? '').slice(0, 100000))
+
+/** Los archivos de datos que se apartaron por ilegibles en esta corrida: la interfaz lo avisa. */
+ipcMain.handle('store:asides', () => listAsides())
 
 ipcMain.handle('win:minimize', () => win?.minimize())
 ipcMain.handle('win:maximize', () => {
@@ -353,3 +379,4 @@ ipcMain.handle('win:maximize', () => {
   return win.isMaximized()
 })
 ipcMain.handle('win:close', () => win?.close())
+ipcMain.handle('win:state', () => ({ maximized: !!win?.isMaximized() }))

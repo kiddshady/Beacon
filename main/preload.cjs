@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('beacon', {
   },
 
   copy: (text) => ipcRenderer.invoke('clipboard:write', text),
+  /** Leer el portapapeles (el «Pegar» del menú de los campos). */
+  paste: () => ipcRenderer.invoke('clipboard:read'),
+
+  /** Los archivos de datos ilegibles que se apartaron al arrancar: { file, dead }. */
+  asides: () => ipcRenderer.invoke('store:asides'),
 
   /** Un rango escrito a mano → scope listo para escanear (o error legible). */
   customScope: (text) => ipcRenderer.invoke('scope:custom', text),
@@ -75,6 +80,12 @@ contextBridge.exposeInMainWorld('beacon', {
   win: {
     minimize: () => ipcRenderer.invoke('win:minimize'),
     maximize: () => ipcRenderer.invoke('win:maximize'),
-    close: () => ipcRenderer.invoke('win:close')
+    close: () => ipcRenderer.invoke('win:close'),
+    state: () => ipcRenderer.invoke('win:state'),
+    onMaximized: (fn) => {
+      const handler = (_e, max) => fn(max)
+      ipcRenderer.on('win:maximized', handler)
+      return () => ipcRenderer.off('win:maximized', handler)
+    }
   }
 })

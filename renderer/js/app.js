@@ -98,6 +98,7 @@ async function boot () {
       `pero una versión 7.9x identifica bastante mejor los servicios.`)
   }
 
+  tellAsides()
   wireControls()
   watchUpdates()
   watch = installWatch({
@@ -127,6 +128,21 @@ async function boot () {
     })
   })
   renderSide()
+}
+
+/**
+ * Un archivo de datos ilegible (la memoria de la red, los ajustes) se aparta
+ * con «.corrupto-» en el nombre y Beacon arranca sin él (store.js). Sin este
+ * aviso, para la persona los alias y el historial simplemente desaparecían.
+ */
+async function tellAsides () {
+  const list = await window.beacon.asides?.().catch(() => []) || []
+  const files = [...new Set(list.map(a => a.file))]
+  if (!files.length) return
+  const one = files.length === 1
+  renderNotice($('#notices'),
+    `${files.join(', ')} ${one ? 'estaba dañado' : 'estaban dañados'}: ${one ? 'quedó' : 'quedaron'} aparte ` +
+    `en la carpeta de datos, con «.corrupto-» en el nombre, y Beacon arrancó sin ${one ? 'él' : 'ellos'}.`)
 }
 
 /* ── Actualizaciones ───────────────────────────────────────────────────── */

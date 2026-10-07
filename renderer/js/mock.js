@@ -302,6 +302,13 @@ window.beacon = {
     return true
   },
 
+  async paste () {
+    try { return await navigator.clipboard.readText() } catch { return '' }
+  },
+
+  // Para ver el aviso de un archivo dañado: beacon._asides = [{ file: 'memory.json' }] y recargar el módulo.
+  async asides () { return window.beacon._asides || [] },
+
   // Sin updater en el navegador: estado quieto, y `install` no hace nada. Para
   // trabajar la UI de cada fase, desde la consola: beacon.update._emit({ phase: 'ready', next: '0.2.0' })
   update: {
@@ -316,7 +323,17 @@ window.beacon = {
     }
   },
 
-  win: { minimize () {}, maximize () {}, close () {} }
+  win: (() => {
+    let max = false
+    const fns = new Set()
+    return {
+      minimize () {},
+      maximize () { max = !max; fns.forEach(fn => fn(max)); return max },
+      close () {},
+      async state () { return { maximized: max } },
+      onMaximized (fn) { fns.add(fn); return () => fns.delete(fn) }
+    }
+  })()
 }
 
 console.info('[Beacon] puente simulado activo — datos de ejemplo, no hay red de verdad detrás.')
