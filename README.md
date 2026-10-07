@@ -33,7 +33,8 @@ main/
   memory.js          qué aparatos vio, en qué red, cuándo, y cómo los llamás vos
   watch.js           vigilancia continua: reloj, bandeja, notificaciones
   settings.js        lo que configuraste (settings.json en userData)
-  store.js           un JSON en userData, escrito de forma atómica
+  store.js           un JSON en userData, atómico; un archivo tomado no se lee como vacío
+  recover.js         si se cae el proceso de la interfaz, la ventana se recarga sola
   net/
     interfaces.js    detecta las subredes escaneables
     arp.js           lee la tabla ARP (parsea por regex, no por idioma de Windows)
@@ -59,8 +60,14 @@ renderer/
   js/watch.js        el popover de vigilancia
   js/export.js       exportar: JSON, CSV (con ; y BOM, para Excel) o PNG del radar
   js/history.js      historial: cómo estaba la red cada vez que se la escaneó
-  js/ui.js           tooltip, fade del scroll, nombres y fechas
+  js/ui.js           tooltip, fade del scroll, un diálogo a la vez, nombres y fechas
+  js/motion.js       lo que ya se ve se pone al día: listas por clave, relevos, números que corren
+  js/fieldmenu.js    el menú del click derecho en los campos de texto
+  js/command.js      el panel del comando nmap equivalente
   js/mock.js         puente falso para trabajar la UI sin Electron
+test/
+  store.test.mjs     el store contra lo que pasa en Windows (archivos tomados, apagar)
+  format.test.mjs    duraciones y tamaños en los bordes de cada unidad
 ```
 
 ## Detalles que importan
@@ -147,6 +154,7 @@ renderer/
 npm run dev     # vite + electron
 npm run ui      # solo el renderer, con datos simulados, en el navegador
 npm run smoke   # prueba el motor sin interfaz (acepta un preset: quick, deep…)
+npm test        # el store y los formatos, sin Electron
 npm run oui     # actualiza la base de fabricantes desde el IEEE
 npm run icon    # regenera build/icon.png desde la marca de la app
 npm run dist    # instalador NSIS en release/, sin publicar
@@ -158,6 +166,29 @@ Para capturar la app corriendo un escaneo real:
 ```bash
 BEACON_CAPTURE=salida.png BEACON_CAPTURE_PRESET="Escaneo rápido" npx electron .
 ```
+
+## Electron y lo que viene de Opal
+
+Beacon usa la física visual de Opal y, desde la 0.11, también lo que Opal aprendió
+después (que a su vez lo trajo de la auditoría de Prism): el anillo de foco como
+`outline` (la sombra de los botones le ganaba y con Tab no se veía nada), grises que
+pasan 4,5:1, un tooltip que releva al vecino y no queda clavado, el menú de los
+campos, y que nada de lo que ya se ve se rehaga con `innerHTML` (`motion.js`).
+
+**Electron 44.5.1.** Nunca por debajo de la 40: desde ahí el compositor de Windows
+tiñe con el `backgroundColor` de la ventana el cuadro de restaurar, que antes era
+blanco. Pero Electron da parches de seguridad solo a las **tres últimas mayores**,
+así que cada tanto `npm view electron dist-tags`: si la instalada ya no está entre
+las tres últimas, se sube. En la 44 el portapapeles del proceso principal es
+asíncrono (`await clipboard.writeText`), y desde la 42 el binario se baja la
+primera vez que corre `electron`, no al instalar.
+
+**Los datos no se pierden.** `memory.json` (los alias, el historial) se lee una vez
+y se escribe atómico. Un archivo que un backup o un antivirus tiene tomado al
+arrancar se reintenta y, si no se suelta, el error sube: tomarlo como vacío hacía
+que el primer guardado escribiera encima. Uno roto se aparta como `.corrupto-<fecha>`
+y la app lo avisa. Apagar Windows avisa (`query-session-end`) y después puede cortar
+en cualquier momento: lo pendiente se escribe ahí mismo, sin soltar el hilo.
 
 ## La base de fabricantes
 
