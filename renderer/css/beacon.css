@@ -48,7 +48,13 @@
   /* ── Texto, en escalera de énfasis. Nunca blanco puro. ─────────────────── */
   --text:   oklch(93.5% .006 175);
   --text-2: oklch(74% .012 175);
-  --text-3: oklch(56% .014 175);
+  /* text-3 es el gris más bajo que todavía se LEE: pasa 4,5:1 (WCAG, texto
+     chico) sobre el fondo, las hojas y una tarjeta bajo el mouse (s3 sobre la
+     hoja). Con 56 % daba 3,2 ahí y 3,5 sobre una tarjeta quieta: la IP y el
+     fabricante de cada aparato no llegaban. text-4 no se lee: es solo para
+     placeholders, lo deshabilitado y los adornos, nunca para un dato (una
+     versión, una escala, un atajo). Viene de Opal (y Opal, de Prism). */
+  --text-3: oklch(65% .014 175);
   --text-4: oklch(42% .014 175);
 
   /* ── Acento: luz. Vive en cantos, anillos de foco y puntos; no rellena. ── */
@@ -125,6 +131,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* La interfaz es oscura, y lo dice. Lo que Chromium dibuja por su cuenta (las
+   sugerencias de un campo, un selector nativo que se cuele) sale oscuro y no
+   con su blanco de fábrica. Y si se prende el oscurecido a la fuerza de
+   Chromium, esta página queda afuera: ya es oscura, no hay nada que invertir. */
+:root { color-scheme: dark; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -162,12 +174,19 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 ::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / .16); background-clip: content-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
+/* Solo con teclado (:focus-visible), nunca el outline azul del sistema. Es un
+   outline y no una sombra: los controles con superficie (.btn, el primario,
+   las tarjetas, los chips) declaran su propio box-shadow con la misma
+   especificidad y le ganaban al anillo: con Tab no se veía nada. El outline no
+   compite con nadie, sigue el border-radius, y el offset deja el aire del
+   fondo entre el control y la luz (3,5 px por fuera en total). Lo que marca el
+   foco a su manera (un campo que se hunde) lo apaga con outline: none; donde
+   no hay 3,5 px de aire hasta lo que recorta, va hacia adentro con un offset
+   negativo (layout.css). */
 :focus { outline: none; }
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / .5), 0 0 0 3px var(--ring);
-  border-radius: var(--r-sm);
-  transition: box-shadow var(--t-fast) var(--ease-soft);
+  outline: 1.5px solid var(--ring);
+  outline-offset: 2px;
 }
 
 /* ── El sustrato ───────────────────────────────────────────────────────────
@@ -225,8 +244,12 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 .scroll-y {
   overflow-y: auto;
   overflow-x: hidden;
-  /* El padding iguala al fade para que en reposo no coma ningún elemento. */
+  /* El padding iguala al fade para que en reposo no coma ningún elemento. Y el
+     scroll-padding hace lo mismo cuando algo se trae a la vista (Tab, la
+     tarjeta del punto que tocaste en el radar): queda fuera del esfumado, con
+     su anillo de foco entero, en vez de pegado al borde. */
   padding-block: var(--fade);
+  scroll-padding-block: var(--fade);
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
@@ -345,6 +368,8 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 .btn-icon:hover { background: var(--wash-1); color: var(--text); box-shadow: none; }
 .btn-icon:active { transform: scale(.92); background: var(--wash-2); }
 .btn-icon svg { width: 16px; height: 16px; }
+/* Apagado se ve apagado: antes era igual a uno que anda, y el click no hacía nada. */
+.btn-icon:disabled { color: var(--text-4); opacity: .55; pointer-events: none; }
 
 /* ── Animaciones compartidas ───────────────────────────────────────────── */
 

@@ -63,21 +63,45 @@
   color: var(--text);
 }
 
-.brand-sub { font-size: 10.5px; color: var(--text-4); }
+.brand-sub { font-size: 10.5px; color: var(--text-3); }
 
 .titlebar-controls {
   display: flex;
   align-self: stretch;
   -webkit-app-region: no-drag;
 }
-/* Los de ventana van de canto a canto, como en Windows, pero dibujados. */
+/* Los de ventana se clickean en todo el alto de la barra (maximizada, tirar el
+   mouse a la esquina tiene que acertar la cruz), pero lo que se ve —hover,
+   press y el anillo de foco— es una pastilla adentro. Pintado sobre el botón,
+   el anillo del teclado se cortaba contra el canto de la ventana, y el rojo de
+   cerrar llegaba hasta el borde. Viene de Opal. */
 .titlebar-controls .btn-icon {
+  position: relative;
+  z-index: 0;
   width: 46px;
   height: 100%;
   border-radius: 0;
 }
+.titlebar-controls .btn-icon::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 5px;
+  right: 5px;
+  top: calc((100% - 28px) / 2);
+  height: 28px;
+  border-radius: var(--r-sm);
+  transition: background var(--t-base) var(--ease-soft);
+}
+.titlebar-controls .btn-icon:hover,
+.titlebar-controls .btn-icon:active { background: transparent; }
+.titlebar-controls .btn-icon:hover::before { background: var(--wash-1); }
+.titlebar-controls .btn-icon:active::before { background: var(--wash-2); }
+.titlebar-controls .btn-icon:focus-visible { outline: none; }
+.titlebar-controls .btn-icon:focus-visible::before { outline: 1.5px solid var(--ring); outline-offset: 2px; }
 .titlebar-controls .btn-icon svg { width: 13px; height: 13px; }
-.danger-hover:hover { background: var(--danger-dim) !important; color: #fff !important; }
+.danger-hover:hover { color: #fff; }
+.titlebar-controls .danger-hover:hover::before { background: var(--danger-dim); }
 
 /* El botón de "acerca de" lleva un punto cuando hay una versión nueva lista:
    es el único lugar donde el updater se hace notar sin que nadie pregunte. */
@@ -198,6 +222,9 @@
   white-space: nowrap;
   transition: background var(--t-fast) var(--ease-soft), color var(--t-fast) var(--ease-soft), box-shadow var(--t-base) var(--ease);
 }
+/* El anillo va hacia adentro: el de base sale 3,5 px por fuera, y acá hay 3 px
+   de pista y 2 entre opciones; se pisaba con el canto y con la vecina. */
+.preset:focus-visible { outline-offset: -1.5px; }
 .preset:hover { color: var(--text); }
 .preset[aria-pressed='true'] {
   background: var(--s4);
@@ -308,7 +335,8 @@
 /* Anillos, radios y escala de rumbo */
 .ring { fill: none; stroke: rgb(255 255 255 / .075); stroke-width: 1; }
 .ring-label {
-  fill: var(--text-4);
+  /* La escala de latencia es un dato: dice qué significa cada anillo. */
+  fill: var(--text-3);
   font-size: 14px;
   font-family: var(--mono);
   letter-spacing: .04em;
