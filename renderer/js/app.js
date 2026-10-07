@@ -9,6 +9,7 @@ import { installExport } from './export.js'
 import { installHistory } from './history.js'
 import { Inspector } from './inspector.js'
 import { swap, swapText, reconcile } from './motion.js'
+import { installFieldMenu } from './fieldmenu.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -52,6 +53,7 @@ async function boot () {
 
   paintIcons()
   installTooltips()
+  installFieldMenu()   // el click derecho en un campo: cortar, copiar, pegar
   watchScrollFade($('#side-body'))
   watchScrollFade($('#scope-picker'), { axis: 'x' })
 
