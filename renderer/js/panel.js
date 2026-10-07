@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
 import { hostName, timeAgo, formatDate, afterExit } from './ui.js'
+import { reconcile, swap, swapText, blinkTo, roll } from './motion.js'
 
 /** Traduce el tipo de aparato a algo que se lee, no a una clave interna. */
 const KIND_LABEL = {
@@ -58,84 +59,128 @@ export function matchesFilter (h, filter) {
   return terms.every(t => hay.includes(t))
 }
 
-export function renderList (container, hosts, { selected, onSelect, onHover, missing = [], layout = 'list', filter = '' } = {}) {
-  const sorted = [...hosts].sort(sortHosts)
-  container.classList.toggle('grid', layout === 'grid')
+/* Las partes de una tarjeta que pueden cambiar mientras se ve: el aparato se
+   va completando durante el escaneo (el nombre se resuelve, llegan los
+   puertos, la latencia, el tipo). */
+function cardParts (h) {
+  const warn = (h.ports || []).filter(p => p.risk === 'warn')
+  return {
+    kind: h.kind || 'unknown',
+    warn: warn.length > 0,
+    name: hostName(h),
+    sub: `<span>${esc(h.ip)}</span>${h.vendor ? `<span class="vendor">${esc(h.vendor)}</span>` : ''}`,
+    right: (h.memory?.isNew ? '<span class="pill new">nuevo</span>' : '') +
+      (h.ports?.length ? `<span class="pill ${warn.length ? 'warn' : 'phosphor'}">${h.ports.length}</span>` : '') +
+      (h.latency != null ? `<span class="pill">${h.latency}ms</span>` : '')
+  }
+}
 
-  if (!sorted.length && !missing.length) {
-    container.innerHTML = filter
-      ? `<p class="empty-note">Nada coincide con «${esc(filter)}».</p>`
-      : `<p class="empty-note">Todavía no apareció nadie.<br>
-      Si recién arrancás, tocá <strong>Escanear</strong>.</p>`
+function buildCard (h) {
+  const card = document.createElement('button')
+  card.className = 'host-card'
+  card.dataset.ip = h.ip
+  card.innerHTML = `
+    <span class="host-icon"></span>
+    <span class="host-meta">
+      <span class="host-name selectable swap-truncate"></span>
+      <span class="host-sub swap-row"></span>
+    </span>
+    <span class="host-right swap-row"></span>`
+  // Los oyentes leen lo último que se pintó: la tarjeta es la misma de render en render.
+  card.addEventListener('click', () => card.__opts.onSelect?.(card.__host))
+  card.addEventListener('mouseenter', () => card.__opts.onHover?.(card.__host.ip))
+  card.addEventListener('mouseleave', () => card.__opts.onHover?.(null))
+  fillCard(card, h, true)
+  return card
+}
+
+/** Pone una tarjeta al día. La primera vez escribe; después, lo que cambió se releva en su lugar. */
+function fillCard (card, h, first = false) {
+  const p = cardParts(h)
+  const was = card.__parts || {}
+  card.__host = h
+  card.__parts = p
+  card.classList.toggle('is-self', !!h.isSelf)
+  card.classList.toggle('has-warn', p.warn)
+  card.classList.toggle('is-new', !!h.memory?.isNew)
+  const icn = card.querySelector('.host-icon')
+  const name = card.querySelector('.host-name')
+  const sub = card.querySelector('.host-sub')
+  const right = card.querySelector('.host-right')
+  if (first) {
+    icn.innerHTML = icon(KIND_ICON[p.kind])
+    name.textContent = p.name
+    sub.innerHTML = p.sub
+    right.innerHTML = p.right
     return
   }
+  if (p.kind !== was.kind) swap(icn, icon(KIND_ICON[p.kind]))
+  if (p.name !== was.name) swapText(name, p.name)
+  if (p.sub !== was.sub) swap(sub, p.sub)
+  if (p.right !== was.right) swap(right, p.right, { size: true })
+}
 
-  const cards = sorted.map((h, i) => {
-    const warn = (h.ports || []).filter(p => p.risk === 'warn')
-    const kind = h.kind || 'unknown'
-
-    const card = document.createElement('button')
-    card.className = 'host-card'
-    card.dataset.ip = h.ip
-    if (h.isSelf) card.classList.add('is-self')
-    if (warn.length) card.classList.add('has-warn')
-    if (h.memory?.isNew) card.classList.add('is-new')
-    card.setAttribute('aria-pressed', String(selected === h.ip))
-    // Escalonar la entrada hace que la lista se sienta llenarse, no parpadear.
-    card.style.animationDelay = `${Math.min(i * 22, 300)}ms`
-
-    card.innerHTML = `
-      <span class="host-icon">${icon(KIND_ICON[kind])}</span>
-      <span class="host-meta">
-        <span class="host-name selectable">${esc(hostName(h))}</span>
-        <span class="host-sub">
-          <span>${esc(h.ip)}</span>
-          ${h.vendor ? `<span class="vendor">${esc(h.vendor)}</span>` : ''}
-        </span>
+const ghostHTML = (m) => `
+  <div class="host-card ghost">
+    <span class="host-icon">${icon(KIND_ICON[m.kind] || 'unknown')}</span>
+    <span class="host-meta">
+      <span class="host-name selectable">${esc(m.name)}</span>
+      <span class="host-sub">
+        <span>${esc(m.ip)}</span>
+        ${m.vendor ? `<span class="vendor">${esc(m.vendor)}</span>` : ''}
       </span>
-      <span class="host-right">
-        ${h.memory?.isNew ? '<span class="pill new">nuevo</span>' : ''}
-        ${h.ports?.length
-          ? `<span class="pill ${warn.length ? 'warn' : 'phosphor'}">${h.ports.length}</span>`
-          : ''}
-        ${h.latency != null ? `<span class="pill">${h.latency}ms</span>` : ''}
-      </span>`
+    </span>
+    <span class="host-right">
+      ${m.lastSeen ? `<span class="pill">visto ${esc(timeAgo(m.lastSeen))}</span>` : ''}
+    </span>
+  </div>`
 
-    card.addEventListener('click', () => onSelect?.(h))
-    card.addEventListener('mouseenter', () => onHover?.(h.ip))
-    card.addEventListener('mouseleave', () => onHover?.(null))
-    return card
-  })
+/**
+ * La lista se pone al día por clave, no se rehace (reconcile, en motion.js).
+ * Antes se rehacía entera con cada hallazgo del escaneo y con cada letra del
+ * filtro: todas las tarjetas volvían a entrar escalonadas, varias veces por
+ * segundo. Ahora cada aparato es la misma tarjeta de principio a fin: las
+ * nuevas entran, las que el filtro saca se esfuman en su lugar, las que se
+ * reordenan (llegó el router, apareció un puerto riesgoso) viajan, y lo que
+ * cambia adentro se releva.
+ */
+export function renderList (container, hosts, { selected, onSelect, onHover, missing = [], layout = 'list', filter = '' } = {}) {
+  const sorted = [...hosts].sort(sortHosts)
+  const opts = { onSelect, onHover }
+  const items = []
+
+  if (!sorted.length && !missing.length) {
+    items.push(filter
+      ? { key: 'empty:filter', html: `<p class="empty-note">Nada coincide con «${esc(filter)}».</p>` }
+      : { key: 'empty', html: `<p class="empty-note">Todavía no apareció nadie.<br>
+      Si recién arrancás, tocá <strong>Escanear</strong>.</p>` })
+  }
+
+  for (const h of sorted) {
+    items.push({
+      key: `h:${h.ip}`,
+      get node () { const c = buildCard(h); c.__opts = opts; c.setAttribute('aria-pressed', String(selected === h.ip)); return c },
+      host: h
+    })
+  }
 
   // Los que estaban la última vez y ahora no contestaron: se muestran apagados,
   // al final, con lo que se recuerda de ellos. No son botones: no hay nada que abrir.
   if (missing.length) {
-    const head = document.createElement('div')
-    head.className = 'ghost-head label'
-    head.textContent = `No contestaron esta vez (${missing.length})`
-    cards.push(head)
-
-    for (const [i, m] of missing.entries()) {
-      const ghost = document.createElement('div')
-      ghost.className = 'host-card ghost'
-      ghost.style.animationDelay = `${Math.min((sorted.length + i) * 22, 300)}ms`
-      ghost.innerHTML = `
-        <span class="host-icon">${icon(KIND_ICON[m.kind] || 'unknown')}</span>
-        <span class="host-meta">
-          <span class="host-name selectable">${esc(m.name)}</span>
-          <span class="host-sub">
-            <span>${esc(m.ip)}</span>
-            ${m.vendor ? `<span class="vendor">${esc(m.vendor)}</span>` : ''}
-          </span>
-        </span>
-        <span class="host-right">
-          ${m.lastSeen ? `<span class="pill">visto ${esc(timeAgo(m.lastSeen))}</span>` : ''}
-        </span>`
-      cards.push(ghost)
-    }
+    items.push({ key: 'ghost-head', html: `<div class="ghost-head label">No contestaron esta vez (${missing.length})</div>` })
+    for (const m of missing) items.push({ key: `g:${m.ip}`, html: ghostHTML(m) })
   }
 
-  container.replaceChildren(...cards)
+  reconcile(container, items, {
+    // La forma de la lista cambia después de medir dónde estaba cada tarjeta: así viajan.
+    mutate: () => container.classList.toggle('grid', layout === 'grid'),
+    update: (el, it) => {
+      if (!it.host) return
+      el.__opts = opts
+      el.setAttribute('aria-pressed', String(selected === it.host.ip))
+      fillCard(el, it.host)
+    }
+  })
 }
 
 /**
@@ -200,7 +245,13 @@ function historyLine (host) {
   return line ? line[0].toUpperCase() + line.slice(1) + '.' : null
 }
 
-export function renderDetail (container, host, { onAlias, onWake, onOpen, onCopy, onDeepen, deepening = false } = {}) {
+/* El aparato y las acciones con que se pintó el detalle que se ve. Los oyentes
+   lo leen al momento del click: el detalle se pone al día en su lugar, y un
+   botón que vino de un repintado viejo tiene que actuar sobre el dato nuevo. */
+const refOf = (el) => el.closest('.detail').__ref
+
+function buildDetail (host, opts) {
+  const { onAlias, onDeepen, deepening = false } = opts
   const kind = host.kind || 'unknown'
   const ports = [...(host.ports || [])].sort((a, b) => {
     const rank = { warn: 0, watch: 1, ok: 2 }
@@ -212,6 +263,8 @@ export function renderDetail (container, host, { onAlias, onWake, onOpen, onCopy
 
   const wrap = document.createElement('div')
   wrap.className = 'detail'
+  wrap.dataset.ip = host.ip
+  wrap.__ref = { host, opts, panel }
   wrap.innerHTML = `
     <div class="detail-head">
       <span class="host-icon">${icon(KIND_ICON[kind])}</span>
@@ -225,50 +278,48 @@ export function renderDetail (container, host, { onAlias, onWake, onOpen, onCopy
     </div>
 
     <div class="detail-actions">
-      ${onDeepen && !host.isSelf ? `<button class="btn btn-small${deepening ? ' busy' : ''}" data-deepen ${deepening ? 'disabled' : ''}
+      ${onDeepen && !host.isSelf ? `<button class="btn btn-small${deepening ? ' busy' : ''}" data-act="deepen" ${deepening ? 'disabled' : ''}
         data-tip="Escaneo profundo solo de este aparato: 200 puertos y, con nmap, versión de cada servicio y sistema operativo">${icon('radar')}${deepening ? 'Profundizando…' : 'Profundizar'}</button>` : ''}
-      ${panel ? `<button class="btn btn-small" data-open data-tip="${esc(panel)}">${icon('external')}Abrir panel</button>` : ''}
-      ${host.mac && !host.isSelf ? `<button class="btn btn-small" data-wake data-tip="Manda el paquete mágico de Wake-on-LAN al broadcast de la red">${icon('power')}Despertar</button>` : ''}
-      <button class="btn btn-small" data-copy data-tip="Copiar la IP">${icon('copy')}${esc(host.ip)}</button>
+      ${panel ? `<button class="btn btn-small" data-act="open" data-tip="${esc(panel)}">${icon('external')}Abrir panel</button>` : ''}
+      ${host.mac && !host.isSelf ? `<button class="btn btn-small" data-act="wake" data-tip="Manda el paquete mágico de Wake-on-LAN al broadcast de la red">${icon('power')}Despertar</button>` : ''}
+      <button class="btn btn-small" data-act="copy" data-tip="Copiar la IP">${icon('copy')}${esc(host.ip)}</button>
     </div>
 
     <div class="detail-facts">
-      <div class="fact"><span class="label">Dirección IP</span><b class="selectable">${esc(host.ip)}</b></div>
-      <div class="fact"><span class="label">MAC</span><b class="selectable">${esc(host.mac || '—')}</b></div>
-      <div class="fact"><span class="label">Fabricante</span><b class="selectable">${esc(host.vendor || '—')}</b>
+      <div class="fact" data-fact="ip"><span class="label">Dirección IP</span><b class="selectable">${esc(host.ip)}</b></div>
+      <div class="fact" data-fact="mac"><span class="label">MAC</span><b class="selectable">${esc(host.mac || '—')}</b></div>
+      <div class="fact" data-fact="vendor"><span class="label">Fabricante</span><b class="selectable">${esc(host.vendor || '—')}</b>
         ${host.vendorNote ? `<span class="fact-note">${esc(host.vendorNote)}</span>` : ''}</div>
-      ${host.model || host.upnp?.server ? `<div class="fact">
+      ${host.model || host.upnp?.server ? `<div class="fact" data-fact="model">
         <span class="label">${host.model ? 'Modelo' : 'Se presenta como'}</span>
         <b class="selectable">${esc(host.model || host.upnp.server)}</b>
         <span class="fact-note">${host.model ? 'lo dice el aparato, por UPnP' : 'cabecera SERVER de UPnP'}</span></div>` : ''}
-      <div class="fact fact-ping">
+      <div class="fact fact-ping" data-fact="ping">
         <span class="label">Latencia en vivo</span>
         <b data-ping-now>${host.latency != null ? `${host.latency} ms` : '—'}</b>
         <svg class="spark" data-spark viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden="true"></svg>
         <span class="fact-note" data-ping-note>midiendo…</span>
       </div>
-      ${host.os ? `<div class="fact" style="grid-column:1/-1">
+      ${host.os ? `<div class="fact" data-fact="os" style="grid-column:1/-1">
         <span class="label">Sistema operativo (estimado)</span>
         <b class="selectable">${esc(host.os.name)} · ${host.os.accuracy}% de confianza</b></div>` : ''}
-      ${history ? `<div class="fact" style="grid-column:1/-1">
+      ${history ? `<div class="fact" data-fact="history" style="grid-column:1/-1">
         <span class="label">Historial</span>
         <span class="fact-note selectable" style="margin-top:0">${esc(history)}</span></div>` : ''}
     </div>
 
-    <div class="label" style="padding:0 2px 8px">
-      ${ports.length ? `Puertos abiertos (${ports.length})` : 'Puertos'}
-    </div>
-    <div id="port-list"></div>`
+    <div class="label detail-ports-label" style="padding:0 2px 8px">${ports.length ? `Puertos abiertos (${ports.length})` : 'Puertos'}</div>
+    <div class="port-list"></div>`
 
-  const list = wrap.querySelector('#port-list')
-
+  const list = wrap.querySelector('.port-list')
   if (!ports.length) {
-    list.innerHTML = `<p class="empty-note">Ningún puerto abierto entre los que se revisaron.<br>
+    list.innerHTML = `<p class="empty-note" data-port="none">Ningún puerto abierto entre los que se revisaron.<br>
       Este aparato está callado — que es exactamente lo que uno quiere.</p>`
   } else {
     list.replaceChildren(...ports.map((p, i) => {
       const row = document.createElement('div')
       row.className = `port-row ${p.risk === 'warn' ? 'warn' : ''}`
+      row.dataset.port = p.port
       row.style.animationDelay = `${Math.min(i * 28, 320)}ms`
       const url = webUrl(host, p.port)
       const isNew = host.memory?.newPorts?.includes(p.port)
@@ -281,30 +332,114 @@ export function renderDetail (container, host, { onAlias, onWake, onOpen, onCopy
           ${p.product ? `<div class="port-product selectable">${esc(p.product)}</div>` : ''}
         </span>
         ${url ? `<button class="btn-icon port-open" data-tip="Abrir ${esc(url)}">${icon('external')}</button>` : ''}`
-      row.querySelector('.port-open')?.addEventListener('click', () => onOpen?.(url))
+      row.querySelector('.port-open')?.addEventListener('click', (e) => refOf(e.currentTarget).opts.onOpen?.(url))
       return row
     }))
   }
 
-  wrap.querySelector('.edit')?.addEventListener('click', () => editAlias(wrap, host, onAlias))
-  wrap.querySelector('[data-open]')?.addEventListener('click', () => onOpen?.(panel))
-  wrap.querySelector('[data-deepen]')?.addEventListener('click', () => onDeepen?.(host))
-  wrap.querySelector('[data-copy]')?.addEventListener('click', (e) => {
-    onCopy?.(host.ip)
+  wrap.querySelector('.edit')?.addEventListener('click', (e) => {
+    const d = e.currentTarget.closest('.detail')
+    editAlias(d, d.__ref.host, d.__ref.opts.onAlias)
+  })
+  const act = (name, fn) => wrap.querySelector(`[data-act="${name}"]`)?.addEventListener('click', fn)
+  act('open', (e) => { const r = refOf(e.currentTarget); r.opts.onOpen?.(r.panel) })
+  act('deepen', (e) => { const r = refOf(e.currentTarget); r.opts.onDeepen?.(r.host) })
+  act('copy', (e) => {
+    const r = refOf(e.currentTarget)
+    r.opts.onCopy?.(r.host.ip)
     flash(e.currentTarget, `${icon('check')}Copiada`)
   })
-  wrap.querySelector('[data-wake]')?.addEventListener('click', async (e) => {
+  act('wake', async (e) => {
     const btn = e.currentTarget
+    const r = refOf(btn)
     btn.disabled = true
     try {
-      await onWake?.(host)
+      await r.opts.onWake?.(r.host)
       flash(btn, `${icon('check')}Enviado`)
     } catch {
       flash(btn, `${icon('alert')}No salió`)
     }
   })
-  container.replaceChildren(wrap)
   return wrap
+}
+
+/**
+ * El detalle de un aparato. Si ya se ve el de ese mismo aparato, se pone al
+ * día por partes en vez de rehacerse: con cada puerto que llega al
+ * profundizar, todo el detalle volvía a entrar (los puertos escalonados, el
+ * ping en blanco). Ahora los puertos nuevos entran, los datos que cambian se
+ * relevan en su lugar, y lo demás no se mueve. Cambiar de aparato con la hoja
+ * abierta es un relevo: el detalle viejo se esfuma y el nuevo entra.
+ */
+export function renderDetail (container, host, opts = {}) {
+  const nu = buildDetail(host, opts)
+  reconcile(container, [{ key: `d:${host.ip}`, node: nu }], {
+    update: (old) => patchDetail(old, nu)
+  })
+  return container.querySelector(':scope > .detail:not([data-state="closing"])')
+}
+
+function patchDetail (old, nu) {
+  old.__ref = nu.__ref
+  const part = (el, sel) => el.querySelector(sel)
+
+  // La cabecera: el nombre, la línea de abajo y el ícono, cada uno en su lugar.
+  // Mientras se edita el nombre, el título es un campo: no se toca.
+  const name = part(old, '.detail-name')
+  if (!name.classList.contains('editing')) {
+    const h2 = part(name, 'h2')
+    const text = part(nu, '.detail-name h2').textContent
+    if (h2.__text !== text && h2.textContent !== text) swapText(h2, text)
+    h2.__text = text
+  }
+  const line = part(old, '.detail-title > p')
+  const lineNu = part(nu, '.detail-title > p').textContent
+  if ((line.__text ?? line.textContent) !== lineNu) { swapText(line, lineNu); line.__text = lineNu }
+  const ico = part(old, '.detail-head .host-icon')
+  const icoNu = part(nu, '.detail-head .host-icon').innerHTML
+  if ((ico.__html ?? ico.innerHTML) !== icoNu) { swap(ico, icoNu); ico.__html = icoNu }
+
+  // Las acciones: una que aparece (llegó un puerto web: «Abrir panel») entra;
+  // una que cambia de rótulo (Profundizar → Profundizando…) lo releva.
+  reconcile(part(old, '.detail-actions'), [...part(nu, '.detail-actions').children].map(b => ({ key: b.dataset.act, node: b })), {
+    update: (btn, it) => {
+      const fresh = it.node
+      btn.disabled = fresh.disabled
+      btn.dataset.tip = fresh.dataset.tip
+      btn.classList.toggle('busy', fresh.classList.contains('busy'))
+      const label = fresh.innerHTML
+      // El que está confirmando lo que hizo («Copiada») vuelve al rótulo nuevo cuando termina.
+      if (btn.classList.contains('flash')) { btn.__label = label; return }
+      if ((btn.__label ?? btn.innerHTML) !== label) { btn.classList.add('swap-row'); swap(btn, label, { size: true }) }
+      btn.__label = label
+    }
+  })
+
+  // Los datos: cada uno por su nombre. El de la latencia es del ping en vivo.
+  reconcile(part(old, '.detail-facts'), [...part(nu, '.detail-facts').children].map(f => ({ key: f.dataset.fact, node: f })), {
+    update: (fact, it) => {
+      if (fact.dataset.fact === 'ping') return
+      const html = it.node.innerHTML
+      if ((fact.__html ?? fact.innerHTML) !== html) { blinkTo(fact, html); fact.__html = html }
+    }
+  })
+
+  const label = part(old, '.detail-ports-label')
+  const labelNu = part(nu, '.detail-ports-label').textContent
+  if ((label.__text ?? label.textContent) !== labelNu) { swapText(label, labelNu); label.__text = labelNu }
+
+  // Los puertos: los que llegan entran, los que ya estaban se quedan quietos.
+  reconcile(part(old, '.port-list'), [...part(nu, '.port-list').children].map(r => ({ key: r.dataset.port, node: r })), {
+    update: (row, it) => {
+      const html = it.node.innerHTML
+      row.className = it.node.className
+      if ((row.__html ?? row.innerHTML) !== html) {
+        row.replaceChildren(...it.node.childNodes)   // con sus oyentes
+        row.__html = html
+        row.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' })
+      }
+    }
+  })
 }
 
 /**
@@ -426,14 +561,19 @@ export function renderDiffNotice (container, diff) {
   container.prepend(div)
 }
 
-/** Un botón que confirma lo que hizo y vuelve a ser lo que era. */
+/**
+ * Un botón que confirma lo que hizo y vuelve a ser lo que era. El rótulo se
+ * releva en su lugar, y el ancho viaja: cambiarlo por innerHTML lo hacía
+ * saltar de un cuadro al otro, de ida y de vuelta.
+ */
 function flash (btn, html, ms = 1500) {
-  const prev = btn.innerHTML
-  btn.innerHTML = html
-  btn.classList.add('flash')
-  setTimeout(() => {
-    btn.innerHTML = prev
+  if (btn.__label == null) btn.__label = btn.innerHTML
+  btn.classList.add('swap-row', 'flash')
+  swap(btn, html, { size: true })
+  clearTimeout(btn.__flash)
+  btn.__flash = setTimeout(() => {
     btn.classList.remove('flash')
+    swap(btn, btn.__label, { size: true })
     btn.disabled = false
   }, ms)
 }
@@ -458,7 +598,13 @@ export function updatePing (container, samples) {
     note.textContent = 'midiendo…'
     return
   }
-  now.textContent = last.ms == null ? 'sin respuesta' : `${last.ms} ms`
+  // La latencia corre de un valor al siguiente en vez de saltar.
+  if (last.ms == null) {
+    if (now.__roll) { cancelAnimationFrame(now.__roll.raf); now.__roll = null }
+    now.textContent = 'sin respuesta'
+  } else {
+    roll(now, last.ms, (v) => { now.textContent = `${Math.round(v)} ms` }, { duration: 360, from: parseInt(now.textContent, 10) })
+  }
   now.classList.toggle('warn', last.ms == null)
 
   const bits = []

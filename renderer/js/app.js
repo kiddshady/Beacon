@@ -8,6 +8,7 @@ import { installWatch } from './watch.js'
 import { installExport } from './export.js'
 import { installHistory } from './history.js'
 import { Inspector } from './inspector.js'
+import { swap, swapText, reconcile } from './motion.js'
 
 const $ = (sel) => document.querySelector(sel)
 
@@ -179,35 +180,54 @@ function updateBrand () {
 
 /* ── Selector de red ───────────────────────────────────────────────────── */
 
+/**
+ * Los chips se ponen al día, no se rehacen: elegir una red cambia cuál está
+ * apretado y el resaltado viaja con su transición (rehechos, el elegido
+ * cambiaba de un cuadro al otro). Un rango a mano nuevo entra; el anterior sale.
+ */
 function renderScopes () {
   const wrap = $('#scope-picker')
-  const chips = state.scopes.map(s => {
+  const chip = (s) => {
     const b = document.createElement('button')
     b.className = 'scope'
     if (s.custom) b.classList.add('custom')
-    b.setAttribute('aria-pressed', String(s.id === state.scope?.id))
-    b.dataset.tip = s.custom
-      ? `Rango a mano — ${s.hostCount} direcciones${s.iface !== 'A mano' ? ` · dentro de ${s.iface}` : ''}`
-      : s.sweepable
-        ? `${s.iface} — ${s.hostCount} direcciones posibles`
-        : `${s.iface} — demasiado grande para barrer entera; se muestran los vecinos conocidos`
     if (!s.sweepable && s.kind !== 'mesh') b.disabled = true
     b.innerHTML = `<b>${s.label}</b><span>${s.cidr}</span>`
-    b.addEventListener('click', () => chooseScope(s))
+    b.addEventListener('click', () => chooseScope(b.__scope))
     return b
-  })
+  }
+  const items = state.scopes.map(s => ({
+    key: `s:${s.id}:${s.cidr}`,
+    get node () { const b = chip(s); paintChip(b, s); return b },
+    scope: s
+  }))
 
   // El último chip abre un campo para escribir una subred o un rango.
-  const add = document.createElement('button')
-  add.className = 'scope scope-add'
-  add.dataset.tip = 'Escaneá otra red: una subred (10.0.0.0/24), un rango (192.168.1.1-50) o una IP'
-  add.innerHTML = `<b>${icon('edit')}Otro rango</b><span>a mano</span>`
-  add.addEventListener('click', () => editScope(add))
-  chips.push(add)
+  items.push({
+    key: 'add',
+    get node () {
+      const add = document.createElement('button')
+      add.className = 'scope scope-add'
+      add.dataset.tip = 'Escaneá otra red: una subred (10.0.0.0/24), un rango (192.168.1.1-50) o una IP'
+      add.innerHTML = `<b>${icon('edit')}Otro rango</b><span>a mano</span>`
+      add.addEventListener('click', () => editScope(add))
+      return add
+    }
+  })
 
-  wrap.replaceChildren(...chips)
+  reconcile(wrap, items, { update: (b, it) => { if (it.scope) paintChip(b, it.scope) } })
   // Con muchas interfaces la fila scrollea: la elegida siempre queda a la vista.
-  wrap.querySelector('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+  wrap.querySelector('[aria-pressed="true"]:not([data-state="closing"])')?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+}
+
+function paintChip (b, s) {
+  b.__scope = s
+  b.setAttribute('aria-pressed', String(s.id === state.scope?.id))
+  b.dataset.tip = s.custom
+    ? `Rango a mano — ${s.hostCount} direcciones${s.iface !== 'A mano' ? ` · dentro de ${s.iface}` : ''}`
+    : s.sweepable
+      ? `${s.iface} — ${s.hostCount} direcciones posibles`
+      : `${s.iface} — demasiado grande para barrer entera; se muestran los vecinos conocidos`
 }
 
 function chooseScope (s) {
@@ -272,6 +292,12 @@ function editScope (chip) {
 
 function renderPresets () {
   const wrap = $('#presets')
+  // Ya están: solo cambia cuál está apretado, y el resaltado pasa con su transición.
+  const ready = wrap.querySelectorAll('.preset')
+  if (ready.length === state.presets.length) {
+    ready.forEach((b, i) => b.setAttribute('aria-pressed', String(state.presets[i].id === state.preset)))
+    return
+  }
   wrap.replaceChildren(...state.presets.map(p => {
     const b = document.createElement('button')
     b.className = 'preset'
@@ -343,27 +369,41 @@ function beginScan () {
   radar.startSweep()
   for (const n of $('#notices').querySelectorAll('[data-kind="diff"]')) dismissNotice(n)
 
-  const btn = $('#run')
-  btn.classList.add('running')
-  btn.querySelector('[data-icon]')?.remove()
-  btn.innerHTML = `<span data-icon="stop"></span>Detener`
-  paintIcons(btn)
+  $('#run').classList.add('running')
+  runLabel(true)
 
+  // La barra arranca de cero sin viajar hacia atrás desde el 100 % del escaneo anterior.
+  const bar = $('#progress i')
+  bar.style.transition = 'none'
+  bar.style.width = '0%'
+  void bar.offsetWidth
+  bar.style.transition = ''
   $('#progress').classList.add('on')
   $('#phase').classList.add('on')
   $('#phase').classList.remove('done')
-  $('#side-body').replaceChildren()
+  // La lista vacía se pone al día: lo del escaneo anterior sale, no desaparece.
+  renderSide()
+}
+
+/** La línea de fase cambia en su lugar: la vieja se va y la nueva entra. */
+function setPhase (text) {
+  swapText($('#phase .phase-text'), text)
+}
+
+/** El rótulo del botón principal, relevado en su lugar (y su ancho viaja). */
+function runLabel (running) {
+  swap($('#run'), `${icon(running ? 'stop' : 'play')}${running ? 'Detener' : 'Escanear'}`, { size: true })
 }
 
 function finish () {
   state.running = false
   radar.stopSweep()
 
-  const btn = $('#run')
-  btn.classList.remove('running')
-  btn.innerHTML = `<span data-icon="play"></span>Escanear`
-  paintIcons(btn)
+  $('#run').classList.remove('running')
+  runLabel(false)
 
+  // Al terminar la barra se completa mientras se apaga, no se queda a medias.
+  $('#progress i').style.width = '100%'
   $('#progress').classList.remove('on')
   $('#phase').classList.add('done')
 }
@@ -385,7 +425,7 @@ function handleEvent (evt) {
       break
 
     case 'phase':
-      $('#phase').textContent = evt.label
+      setPhase(evt.label)
       break
 
     case 'progress': {
@@ -429,10 +469,10 @@ function handleEvent (evt) {
       const quiet = d && !d.first && d.complete && !d.added.length && !d.missing.length && !d.moved.length
       const n = state.hosts.size
       const count = `${n} dispositivo${n === 1 ? '' : 's'}`
-      $('#phase').textContent = evt.stopped
+      setPhase(evt.stopped
         ? `Detenido — ${count}`
-        : `Listo — ${count} en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`
-      $('#stat-time b').textContent = formatMs(evt.ms)
+        : `Listo — ${count} en ${formatMs(evt.ms)}${quiet ? ' · sin novedades' : ''}`)
+      swapText($('#stat-time b'), formatMs(evt.ms))
       state.durationMs = evt.ms
       finish()
       break
@@ -450,17 +490,12 @@ function renderLegend () {
   if (hosts.some(h => h.memory?.isNew)) items.push(['new', 'nuevo en la red'])
   if (hosts.some(h => h.isSelf)) items.push(['self', 'esta máquina'])
 
-  const legend = $('#radar-legend')
-  const key = items.map(i => i[0]).join('|')
-  if (legend.dataset.key === key) return
-  legend.dataset.key = key
-  legend.replaceChildren(...items.map(([cls, text], i) => {
-    const span = document.createElement('span')
-    span.className = `legend-item ${cls}`
-    span.style.animationDelay = `${i * 60}ms`
-    span.innerHTML = `<i></i>${text}`
-    return span
-  }))
+  // Lo que ya estaba se queda quieto: entra solo lo nuevo (antes se rehacía
+  // entera y todos los ítems volvían a entrar cada vez que se sumaba uno).
+  reconcile($('#radar-legend'), items.map(([cls, text]) => ({
+    key: cls || 'echo',
+    html: `<span class="legend-item ${cls}"><i></i>${text}</span>`
+  })))
 }
 
 /* ── Profundizar en uno solo ───────────────────────────────────────────── */
@@ -498,7 +533,7 @@ function handleSingleEvent (evt) {
       break
 
     case 'phase':
-      $('#phase').textContent = evt.label
+      setPhase(evt.label)
       break
 
     case 'progress': {
@@ -528,9 +563,9 @@ function handleSingleEvent (evt) {
     case 'done': {
       const host = state.hosts.get(evt.single)
       const n = host?.ports?.length || 0
-      $('#phase').textContent = evt.stopped
+      setPhase(evt.stopped
         ? `Profundización detenida — ${hostName(host || { ip: evt.single })}`
-        : `Listo — ${hostName(host || { ip: evt.single })}: ${n} puerto${n === 1 ? '' : 's'} en ${formatMs(evt.ms)}`
+        : `Listo — ${hostName(host || { ip: evt.single })}: ${n} puerto${n === 1 ? '' : 's'} en ${formatMs(evt.ms)}`)
       $('#phase').classList.add('done')
       $('#progress').classList.remove('on')
       state.single = null
@@ -598,7 +633,11 @@ function renderInspector () {
 function renderFilterBar (total, shown) {
   $('#filter-wrap').classList.toggle('on', total > 0 || !!state.filter)
   $('#filter').classList.toggle('active', !!state.filter)
-  $('#filter-count').textContent = state.filter ? `${shown}/${total}` : ''
+  // El contador sube o baja según cambie lo que se muestra.
+  const count = $('#filter-count')
+  const before = count.__shown ?? shown
+  count.__shown = shown
+  swapText(count, state.filter ? `${shown}/${total}` : '', { dir: Math.sign(shown - before) })
 }
 
 function setFilter (value) {
@@ -624,7 +663,7 @@ function toggleLayout () {
 function paintLayoutToggle () {
   const btn = $('#view-toggle')
   const grid = state.layout === 'grid'
-  btn.innerHTML = icon(grid ? 'list' : 'grid')
+  btn.classList.toggle('is-b', grid)   // los dos íconos se cruzan (.iconswap)
   btn.dataset.tip = grid ? 'Ver como lista (G)' : 'Ver como grilla (G)'
 }
 
@@ -703,12 +742,21 @@ function wireControls () {
   $('#copy-cmd').addEventListener('click', async () => {
     await window.beacon.copy($('#command-line').textContent)
     const btn = $('#copy-cmd')
-    btn.innerHTML = icon('check')
-    setTimeout(() => { btn.innerHTML = icon('copy') }, 1300)
+    btn.classList.add('is-b')   // copiar → copiado, cruzándose (.iconswap)
+    clearTimeout(btn.__back)
+    btn.__back = setTimeout(() => btn.classList.remove('is-b'), 1300)
   })
 
   $('#win-min').addEventListener('click', () => window.beacon.win.minimize())
   $('#win-max').addEventListener('click', () => window.beacon.win.maximize())
+  // Maximizar también llega por doble click en la barra o Win+flecha: el botón lo escucha.
+  const onMax = (max) => {
+    const btn = $('#win-max')
+    btn.classList.toggle('is-b', !!max)   // maximizar ↔ restaurar, cruzándose
+    btn.dataset.tip = max ? 'Restaurar' : 'Maximizar'
+  }
+  window.beacon.win.onMaximized?.(onMax)
+  window.beacon.win.state?.().then(st => onMax(st?.maximized)).catch(() => {})
   $('#win-close').addEventListener('click', () => window.beacon.win.close())
 
   window.beacon.onScanEvent(handleEvent)

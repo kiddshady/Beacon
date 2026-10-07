@@ -18,7 +18,7 @@
     "start": "npm run build && electron .",
     "oui": "node scripts/update-oui.mjs",
     "smoke": "node scripts/smoke.mjs",
-    "test": "node test/store.test.mjs",
+    "test": "node test/store.test.mjs && node test/format.test.mjs",
     "icon": "electron scripts/make-icon.cjs",
     "dist": "npm run build && electron-builder --win --publish never",
     "release": "node scripts/release.mjs"

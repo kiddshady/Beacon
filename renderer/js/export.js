@@ -155,7 +155,8 @@ export function installExport ({ button, bridge, getData, notices, radarPane }) 
   function place () {
     if (!pop) return
     const a = button.getBoundingClientRect()
-    const p = pop.getBoundingClientRect()
+    // El tamaño de layout: la entrada ya arrancó y la escala lo achica.
+    const p = { width: pop.offsetWidth, height: pop.offsetHeight }
     const x = Math.max(8, Math.min(a.right - p.width, window.innerWidth - p.width - 8))
     pop.style.left = `${Math.round(x)}px`
     pop.style.top = `${Math.round(a.bottom + 8)}px`

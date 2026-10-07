@@ -1,5 +1,5 @@
 import { icon } from './icons.js'
-import { afterExit } from './ui.js'
+import { afterExit, claimDialog, releaseDialog } from './ui.js'
 
 /**
  * Historial: cómo estaba la red cada vez que se la escaneó.
@@ -88,6 +88,7 @@ export function installHistory ({ button, bridge, getScope }) {
     let data = { scans: 0, history: [] }
     try { data = await bridge.history(scope?.cidr) } catch { /* sin memoria, panel vacío */ }
     overlay = build(scope, data)
+    if (claimDialog(close)) overlay.classList.add('is-after')
     document.body.append(overlay)
     void overlay.offsetHeight
     overlay.classList.add('on')
@@ -98,12 +99,14 @@ export function installHistory ({ button, bridge, getScope }) {
     if (!overlay || closing) return
     closing = true
     const node = overlay
+    // Si lo relevó otro diálogo, el foco ya es de ese: no vuelve al botón.
+    const last = releaseDialog(close)
     node.classList.add('closing')
     afterExit(node.querySelector('.about'), () => {
       node.remove()
       overlay = null
       closing = false
-      button.focus({ preventScroll: true })
+      if (last) button.focus({ preventScroll: true })
     })
   }
 

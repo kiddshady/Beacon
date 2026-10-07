@@ -206,6 +206,31 @@ export function afterExit (node, fn, { ms = 600, event = 'animationend', propert
   setTimeout(go, ms)
 }
 
+/* ── Un diálogo a la vez ───────────────────────────────────────────────── */
+
+/**
+ * Hay un solo diálogo a la vista. El que se abre con otro abierto (Ctrl+, con
+ * el historial a la vista) lo releva: el de abajo se va y el nuevo entra
+ * cuando ya va por la mitad de su salida. Antes quedaban los dos encimados,
+ * cada uno con su velo. Viene de Opal, donde el modal nuevo pisaba al de abajo.
+ */
+let shownDialog = null
+
+/** El que se abre avisa con su cierre. Devuelve true si relevó a otro. */
+export function claimDialog (close) {
+  const prev = shownDialog
+  shownDialog = close
+  if (prev && prev !== close) { prev(); return true }
+  return false
+}
+
+/** Al cerrarse: si era el que se veía, ya no hay ninguno (y el foco vuelve a su botón). */
+export function releaseDialog (close) {
+  if (shownDialog !== close) return false
+  shownDialog = null
+  return true
+}
+
 /* ── Varios ────────────────────────────────────────────────────────────── */
 
 /** El nombre que ve la persona: el que le puso ella, si no el detectado, si no la IP. */
@@ -228,10 +253,19 @@ export function formatDate (ts) {
   return new Date(ts).toLocaleDateString('es', { day: 'numeric', month: 'short' })
 }
 
+/**
+ * Con un decimal debajo de 10 s y sin decimales desde ahí, decidido con el
+ * valor YA redondeado (9,96 s es «10 s», no «10,0 s»), y con coma decimal.
+ * Lo mismo que el formato de Opal.
+ */
 export function formatMs (ms) {
   if (ms == null) return '—'
+  ms = Math.round(ms)
   if (ms < 1000) return `${ms} ms`
-  return `${(ms / 1000).toFixed(1)} s`
+  const one = Math.round(ms / 100) / 10
+  return one < 10
+    ? `${one.toLocaleString('es', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`
+    : `${Math.round(ms / 1000)} s`
 }
 
 /** Anima un número hacia su nuevo valor en vez de saltar de golpe. */

@@ -50,7 +50,7 @@
       <div class="titlebar-controls">
         <button class="btn-icon about-btn" id="about" data-icon="info" data-tip="Acerca de Beacon"></button>
         <button class="btn-icon" id="win-min" data-icon="minimize" data-tip="Minimizar"></button>
-        <button class="btn-icon" id="win-max" data-icon="maximize" data-tip="Maximizar"></button>
+        <button class="btn-icon iconswap" id="win-max" data-tip="Maximizar"><span data-icon="maximize"></span><span data-icon="restore"></span></button>
         <button class="btn-icon danger-hover" id="win-close" data-icon="close" data-tip="Cerrar"></button>
       </div>
     </header>
@@ -61,7 +61,7 @@
       <button class="btn watch-btn" id="watch" aria-expanded="false">
         <span data-icon="watch"></span><span class="watch-label">Vigilar</span><i class="watch-dot"></i>
       </button>
-      <button class="btn btn-primary" id="run"><span data-icon="play"></span>Escanear</button>
+      <button class="btn btn-primary swap-row" id="run"><span data-icon="play"></span>Escanear</button>
     </nav>
 
     <section class="side sheet">
@@ -71,10 +71,10 @@
         <div class="stat" id="stat-time"><b class="mono">—</b><span class="label">tiempo</span></div>
         <button class="btn-icon" id="history" data-icon="history" data-tip="Historial de esta red"></button>
         <button class="btn-icon" id="export" data-icon="download" data-tip="Exportar" aria-expanded="false"></button>
-        <button class="btn-icon" id="view-toggle" data-icon="grid" data-tip="Cambiar vista"></button>
+        <button class="btn-icon iconswap" id="view-toggle" data-tip="Cambiar vista"><span data-icon="grid"></span><span data-icon="list"></span></button>
       </div>
       <div class="progress" id="progress"><i></i></div>
-      <div class="phase mono" id="phase"></div>
+      <div class="phase mono" id="phase"><span class="phase-text"></span></div>
       <div class="notices" id="notices"></div>
       <div class="filter-wrap" id="filter-wrap">
         <div class="filter" id="filter">
@@ -91,7 +91,7 @@
     <footer class="command sheet" id="command">
       <div class="command-head">
         <span class="label">Comando nmap equivalente</span>
-        <button class="btn-icon" id="copy-cmd" data-icon="copy" data-tip="Copiar al portapapeles"></button>
+        <button class="btn-icon iconswap" id="copy-cmd" data-tip="Copiar al portapapeles"><span data-icon="copy"></span><span data-icon="check"></span></button>
       </div>
       <code class="command-line mono selectable" id="command-line"></code>
       <div class="command-notes" id="command-notes"></div>

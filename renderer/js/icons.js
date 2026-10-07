@@ -38,6 +38,7 @@ export const ICONS = {
 
   minimize: S(`<path d="M5 12h14"/>`),
   maximize: S(`<rect x="5" y="5" width="14" height="14" rx="2"/>`),
+  restore:  S(`<rect x="5" y="8.5" width="10.5" height="10.5" rx="2"/><path d="M9 5.5h7.5a2 2 0 0 1 2 2V15"/>`),
   close:    S(`<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>`),
 
   play: S(`<path d="M7 4.8v14.4l12-7.2z" fill="currentColor" stroke-linejoin="round"/>`),

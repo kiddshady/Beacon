@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
 import { afterExit } from './ui.js'
+import { reconcile, swap, swapText } from './motion.js'
 
 /**
  * El popover de vigilancia continua: encender, elegir cada cuánto, ver cómo va.
@@ -40,7 +41,8 @@ export function installWatch ({ button, bridge, getScope, getScopes }) {
   function paintButton () {
     button.classList.toggle('on', !!watch.enabled)
     button.classList.toggle('busy', !!watch.running)
-    button.querySelector('.watch-label').textContent = watch.enabled ? 'Vigilando' : 'Vigilar'
+    // El rótulo se releva en su lugar y el botón se estira acompañándolo.
+    swapText(button.querySelector('.watch-label'), watch.enabled ? 'Vigilando' : 'Vigilar', { size: true })
     button.dataset.tip = watch.enabled
       ? `Vigilando ${watch.cidr || 'la red'} cada ${watch.intervalMin} min`
       : 'Vigilancia continua: barre la red cada tanto y avisa si aparece alguien'
@@ -65,7 +67,7 @@ export function installWatch ({ button, bridge, getScope, getScopes }) {
         <span class="watch-row-label">Barre la red cada</span>
         <span class="pills" data-intervals></span>
       </div>
-      <p class="watch-status" data-status></p>
+      <p class="watch-status"><span data-status></span></p>
       <div class="watch-row watch-autostart" data-autostart-row>
         <span class="watch-row-label">Arrancar con Windows, en la bandeja</span>
         <button class="switch small" role="switch" aria-checked="false" data-autostart><i></i></button>
@@ -73,7 +75,7 @@ export function installWatch ({ button, bridge, getScope, getScopes }) {
       <p class="watch-note">Con la vigilancia activa, cerrar la ventana la manda a la bandeja,
         y te aviso cuando aparece alguien que no estaba.</p>
       <footer class="watch-foot">
-        <button class="btn btn-small" data-now>${icon('radar')}Barrer ahora</button>
+        <button class="btn btn-small swap-row" data-now>${icon('radar')}Barrer ahora</button>
       </footer>`
 
     el.querySelector('[data-toggle]').addEventListener('click', () => {
@@ -95,19 +97,29 @@ export function installWatch ({ button, bridge, getScope, getScopes }) {
     const sw = pop.querySelector('[data-toggle]')
     sw.setAttribute('aria-checked', String(!!watch.enabled))
 
-    // Las redes: las detectadas y el rango a mano, si lo hay. La vigilada, marcada.
+    /* Las redes: las detectadas y el rango a mano, si lo hay. La vigilada,
+       marcada. Las pastillas se ponen al día en vez de rehacerse: elegir una
+       mueve el resaltado con su transición (rehechas, cambiaba de golpe, y el
+       reloj de 20 s las volvía a hacer entrar sin que nada cambiara). */
     const scopes = (getScopes?.() || []).filter(s => s.sweepable)
     const current = watch.enabled ? watch.scopeId : (getScope()?.id || null)
-    pop.querySelector('[data-scopes]').replaceChildren(...scopes.map(s => {
+    const pill = (text, onClick) => {
       const b = document.createElement('button')
       b.className = 'pill-btn'
       b.type = 'button'
-      b.setAttribute('aria-pressed', String(s.id === current))
-      b.dataset.tip = s.cidr
-      b.textContent = s.custom ? `a mano ${s.cidr}` : s.label
-      b.addEventListener('click', () => bridge.configure({ scopeId: s.id }).then(apply))
+      b.textContent = text
+      b.addEventListener('click', onClick)
       return b
-    }))
+    }
+    reconcile(pop.querySelector('[data-scopes]'), scopes.map(s => ({
+      key: `${s.id}:${s.cidr}`,
+      get node () { return pill(s.custom ? `a mano ${s.cidr}` : s.label, () => bridge.configure({ scopeId: s.id }).then(apply)) },
+      scope: s
+    })), { enter: !!pop.__painted })
+    for (const b of pop.querySelectorAll('[data-scopes] .pill-btn')) {
+      const s = b.__item?.scope
+      if (s) { b.setAttribute('aria-pressed', String(s.id === current)); b.dataset.tip = s.cidr }
+    }
 
     const auto = pop.querySelector('[data-autostart]')
     auto.setAttribute('aria-checked', String(!!watch.autostart))
@@ -118,32 +130,38 @@ export function installWatch ({ button, bridge, getScope, getScopes }) {
       : 'Solo en la app instalada: en desarrollo no hay .exe que registrar'
     auto.disabled = !watch.enabled || !watch.autostartAvailable
 
-    const pills = pop.querySelector('[data-intervals]')
-    pills.replaceChildren(...(watch.intervals || [5, 15, 30, 60]).map(m => {
-      const b = document.createElement('button')
-      b.className = 'pill-btn'
-      b.type = 'button'
-      b.setAttribute('aria-pressed', String(watch.intervalMin === m))
-      b.textContent = `${m} min`
-      b.addEventListener('click', () => bridge.configure({ intervalMin: m }).then(apply))
-      return b
-    }))
+    reconcile(pop.querySelector('[data-intervals]'), (watch.intervals || [5, 15, 30, 60]).map(m => ({
+      key: String(m),
+      get node () { return pill(`${m} min`, () => bridge.configure({ intervalMin: m }).then(apply)) },
+      minutes: m
+    })), { enter: !!pop.__painted })
+    for (const b of pop.querySelectorAll('[data-intervals] .pill-btn')) {
+      b.setAttribute('aria-pressed', String(watch.intervalMin === b.__item?.minutes))
+    }
 
+    // El estado y el botón cambian en su lugar.
     const s = statusLine(watch)
-    const st = pop.querySelector('[data-status]')
-    st.textContent = s.text
+    swapText(pop.querySelector('[data-status]'), s.text)
+    // El punto que late va en el párrafo: adentro del relevo sería un renglón más.
+    const st = pop.querySelector('.watch-status')
     st.classList.toggle('live', !!s.live)
     st.classList.toggle('off', !watch.enabled)
 
     const now = pop.querySelector('[data-now]')
     now.disabled = !!watch.enabled && !!watch.running
-    now.innerHTML = `${icon('radar')}${!watch.enabled ? 'Encender y barrer' : watch.running ? 'Barriendo…' : 'Barrer ahora'}`
+    const label = `${icon('radar')}${!watch.enabled ? 'Encender y barrer' : watch.running ? 'Barriendo…' : 'Barrer ahora'}`
+    if (now.__label !== label) {
+      if (pop.__painted) swap(now, label, { size: true }); else now.innerHTML = label
+      now.__label = label
+    }
+    pop.__painted = true
   }
 
   function place () {
     if (!pop) return
     const a = button.getBoundingClientRect()
-    const p = pop.getBoundingClientRect()
+    // El tamaño de layout: la entrada ya arrancó y la escala lo achica.
+    const p = { width: pop.offsetWidth, height: pop.offsetHeight }
     let x = a.right - p.width
     x = Math.max(8, Math.min(x, window.innerWidth - p.width - 8))
     pop.style.left = `${Math.round(x)}px`

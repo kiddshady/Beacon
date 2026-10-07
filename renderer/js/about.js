@@ -1,5 +1,6 @@
 import { icon } from './icons.js'
-import { timeAgo, afterExit } from './ui.js'
+import { timeAgo, afterExit, claimDialog, releaseDialog } from './ui.js'
+import { swap, swapText, roll } from './motion.js'
 
 /**
  * Panel "Acerca de": versión, estado de las actualizaciones y entorno.
@@ -14,10 +15,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c =>
 
 const REPO = 'https://github.com/kiddshady/Beacon'
 
-function formatBytes (n) {
+/**
+ * La unidad se elige con el valor YA redondeado: justo debajo de un mega,
+ * 1.048.575 bytes daban «1024 KB» en vez de «1,0 MB» (lo arregló Opal). Y con
+ * coma decimal, como todo lo demás en castellano.
+ */
+export function formatBytes (n) {
   if (!n) return ''
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
-  return `${(n / 1024 / 1024).toFixed(1)} MB`
+  if (Math.round(n / 1024) < 1024) return `${Math.round(n / 1024)} KB`
+  const mb = n / 1024 / 1024
+  return `${mb.toLocaleString('es', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} MB`
 }
 
 /** Traduce la fase del updater a lo que se le dice a una persona. */
@@ -112,45 +119,75 @@ export function installAbout ({ button, bridge, getInfo }) {
     return el
   }
 
+  /**
+   * El estado del updater se pone al día en su lugar. Antes se rehacía entero
+   * con cada dato: durante una descarga eso era varias veces por segundo, y la
+   * barra saltaba (un nodo nuevo no tiene de dónde transicionar) y el
+   * porcentaje cambiaba de golpe. Ahora la barra avanza con su transición, el
+   * porcentaje corre desde lo que se ve, y el texto y el botón se relevan
+   * solo cuando cambia la fase.
+   */
   function renderUpdate () {
     if (!overlay) return
     const wrap = overlay.querySelector('[data-update]')
     const d = describe(update)
 
-    const box = document.createElement('div')
-    box.className = 'about-status' + (d.error ? ' error' : '') + (d.live ? ' live' : '')
-    box.innerHTML =
-      `<div class="about-status-text">` +
-      `<span class="selectable">${esc(d.text)}</span>` +
-      (d.sub ? `<small class="selectable">${esc(d.sub)}</small>` : '') +
-      (d.progress != null ? `<div class="progress on"><i style="width:${d.progress}%"></i></div>` : '') +
-      `</div>`
-
-    if (d.action === 'check') {
-      const b = document.createElement('button')
-      b.className = 'btn btn-small'
-      b.innerHTML = `${icon('refresh')}${update.phase === 'up-to-date' ? 'Buscar de nuevo' : update.phase === 'error' ? 'Reintentar' : 'Buscar'}`
-      b.addEventListener('click', () => bridge.check())
-      box.append(b)
-    } else if (d.action === 'install') {
-      const b = document.createElement('button')
-      b.className = 'btn btn-small'
-      b.innerHTML = `${icon('update')}Reiniciar`
-      b.addEventListener('click', () => {
-        b.disabled = true
-        b.textContent = 'Reiniciando…'
-        bridge.install()
+    let box = wrap.querySelector('.about-status')
+    if (!box) {
+      box = document.createElement('div')
+      box.className = 'about-status'
+      box.innerHTML =
+        `<div class="about-status-text">` +
+        `<span class="about-status-line"><span class="selectable" data-text></span></span>` +
+        `<small class="selectable" data-sub></small>` +
+        `<div class="progress"><i></i></div>` +
+        `</div>` +
+        `<button class="btn btn-small swap-row" type="button" data-action></button>`
+      box.querySelector('[data-action]').addEventListener('click', (e) => {
+        const b = e.currentTarget
+        if (b.__action === 'check') bridge.check()
+        else if (b.__action === 'install') {
+          b.disabled = true
+          swap(b, 'Reiniciando…', { size: true })
+          bridge.install()
+        }
       })
-      box.append(b)
+      wrap.replaceChildren(box)
     }
+    box.classList.toggle('error', !!d.error)
+    box.classList.toggle('live', !!d.live)
 
-    // Se reemplaza el nodo entero para que la entrada se anime en cada cambio de fase.
-    wrap.replaceChildren(box)
+    swapText(box.querySelector('[data-text]'), d.text)
+
+    // El porcentaje de una descarga corre; el resto de la línea de abajo se releva.
+    const sub = box.querySelector('[data-sub]')
+    if (d.progress != null) {
+      const speed = (d.sub || '').replace(/^\d+ %/, '')
+      if (sub.__mode !== 'progress') { sub.__mode = 'progress'; sub.__roll = null; sub.textContent = '' }
+      roll(sub, d.progress, (v) => { sub.textContent = `${Math.round(v)} %${speed}` }, { duration: 500, from: 0 })
+    } else {
+      if (sub.__mode === 'progress') { cancelAnimationFrame(sub.__roll?.raf); sub.__roll = null }
+      sub.__mode = 'text'
+      swapText(sub, d.sub || '')
+    }
+    const bar = box.querySelector('.progress')
+    bar.classList.toggle('on', d.progress != null)
+    bar.querySelector('i').style.width = `${d.progress ?? 0}%`
+
+    const b = box.querySelector('[data-action]')
+    const label = d.action === 'check'
+      ? `${icon('refresh')}${update.phase === 'up-to-date' ? 'Buscar de nuevo' : update.phase === 'error' ? 'Reintentar' : 'Buscar'}`
+      : d.action === 'install' ? `${icon('update')}Reiniciar` : ''
+    b.__action = d.action
+    b.classList.toggle('hidden', !d.action)
+    if (label && b.__label !== label) { swap(b, label, { size: true }); b.__label = label }
+    if (d.action !== 'install') b.disabled = false
   }
 
   function open () {
     if (overlay) return
     overlay = build()
+    if (claimDialog(close)) overlay.classList.add('is-after')
     document.body.append(overlay)
     renderUpdate()
     // Reflow forzado antes de encender: así la transición arranca desde 0 aunque
@@ -164,12 +201,14 @@ export function installAbout ({ button, bridge, getInfo }) {
     if (!overlay || closing) return
     closing = true
     const node = overlay
+    // Si lo relevó otro diálogo, el foco ya es de ese: no vuelve al botón.
+    const last = releaseDialog(close)
     node.classList.add('closing')
     afterExit(node.querySelector('.about'), () => {
       node.remove()
       overlay = null
       closing = false
-      button.focus({ preventScroll: true })
+      if (last) button.focus({ preventScroll: true })
     })
   }
 
