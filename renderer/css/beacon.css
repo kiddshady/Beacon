@@ -220,7 +220,7 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
 
 /* ── Tooltip propio (nunca title=) ─────────────────────────────────────── */
 
-#tooltip {
+.tip {
   position: fixed;
   z-index: 9500;
   padding: 6px 10px;
@@ -237,7 +237,9 @@ button { background: none; border: 0; cursor: pointer; padding: 0; }
   transform: translateY(4px);
   transition: opacity var(--t-fast) var(--ease-soft), transform var(--t-base) var(--ease);
 }
-#tooltip.on { opacity: 1; transform: translateY(0); }
+.tip.on { opacity: 1; transform: translateY(0); }
+/* La salida, más corta que la entrada y en in-out: con otro esperando detrás, baja parejo. */
+.tip.closing { transition: opacity 110ms var(--ease-both), transform 110ms var(--ease-both); }
 
 /* ── Fades de scroll: donde el contenido se corta al aire, se esfuma ───── */
 

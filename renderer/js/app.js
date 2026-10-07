@@ -50,7 +50,7 @@ async function boot () {
   if (!window.beacon) await import('./mock.js')
 
   paintIcons()
-  installTooltips($('#tooltip'))
+  installTooltips()
   watchScrollFade($('#side-body'))
   watchScrollFade($('#scope-picker'), { axis: 'x' })
 
