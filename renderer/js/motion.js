@@ -202,17 +202,26 @@ export function reconcile (box, items, { update, created, mutate, enter = true }
   for (const el of was.values()) { el.__move?.cancel(); el.__move = null }
   mutate?.()
 
+  /* El origen de la caja y la opacidad de las que se van se leen ACÁ, antes
+     de escribir nada. Leídos adentro del bucle de abajo, cada uno venía justo
+     después de escribirle el estilo a la fila anterior y obligaba a rehacer
+     el layout de la lista entera: con dos mil filas saliendo, la ventana se
+     quedaba tildada segundos (Quire, buscando «anti» en un apunte: más de un
+     minuto; lector-40). */
+  const y0 = box0.top + box.clientTop - box.scrollTop
+  const x0 = box0.left + box.clientLeft - box.scrollLeft
+  const ops = new Map(leaving.map((el) => [el, Number(getComputedStyle(el).opacity) || 0]))
   if (leaving.length && getComputedStyle(box).position === 'static') box.style.position = 'relative'
   for (const el of leaving) {
     const r = first.get(el)
     Object.assign(el.style, {
       position: 'absolute', margin: '0', boxSizing: 'border-box', pointerEvents: 'none', zIndex: '0',
-      top: `${r.top - box0.top - box.clientTop + box.scrollTop}px`,
-      left: `${r.left - box0.left - box.clientLeft + box.scrollLeft}px`,
+      top: `${r.top - y0}px`,
+      left: `${r.left - x0}px`,
       width: `${r.width}px`, height: `${r.height}px`
     })
     el.dataset.state = 'closing'
-    const op = Number(getComputedStyle(el).opacity) || 0
+    const op = ops.get(el)
     const anim = el.animate([{ opacity: op }, { opacity: 0 }], { duration: T().out, easing: T().both, fill: 'forwards' })
     settled(anim, T().out + 200, () => el.remove())
   }
